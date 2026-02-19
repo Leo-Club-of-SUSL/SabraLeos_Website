@@ -1,13 +1,14 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { GALLERY_IMAGES } from '../data';
-import type { Project, LeadershipData, GalleryImage, LeadershipMember } from '../types';
-import { projectsAPI, leadershipAPI } from '../lib/supabaseService';
+import { DEFAULT_SITE_CONTENT } from '../data';
+import type { Project, LeadershipData, GalleryImage, LeadershipMember, SiteContent } from '../types';
+import { projectsAPI, leadershipAPI, galleryAPI, siteContentAPI } from '../lib/supabaseService';
 
 interface DataContextType {
   projects: Project[];
   leadership: LeadershipData;
   gallery: GalleryImage[];
+  siteContent: SiteContent;
   loading: boolean;
   error: string | null;
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
@@ -16,8 +17,11 @@ interface DataContextType {
   addMember: (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board') => Promise<void>;
   updateMember: (member: LeadershipMember, type: 'executive' | 'board') => Promise<void>;
   deleteMember: (id: number, type: 'executive' | 'board') => Promise<void>;
-  addImage: (image: Omit<GalleryImage, 'id'>) => void;
-  deleteImage: (id: number) => void;
+  addImage: (image: Omit<GalleryImage, 'id'>) => Promise<void>;
+  updateImage: (id: number, image: Partial<GalleryImage>) => Promise<void>;
+  deleteImage: (id: number) => Promise<void>;
+  updateSiteContent: (key: string, value: string) => Promise<void>;
+  bulkUpdateSiteContent: (entries: { key: string; value: string }[]) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -26,11 +30,8 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [leadership, setLeadership] = useState<LeadershipData>({ executive: [], board: [] });
-  const [gallery, setGallery] = useState<GalleryImage[]>(() => {
-    // Gallery still uses localStorage for now
-    const saved = localStorage.getItem('leo_gallery');
-    return saved ? JSON.parse(saved) : GALLERY_IMAGES;
-  });
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [siteContent, setSiteContent] = useState<SiteContent>(DEFAULT_SITE_CONTENT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,13 +41,18 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       setError(null);
 
-      const [projectsData, leadershipData] = await Promise.all([
+      const [projectsData, leadershipData, galleryData, contentData] = await Promise.all([
         projectsAPI.getAll(),
         leadershipAPI.getAll(),
+        galleryAPI.getAll(),
+        siteContentAPI.getAll(),
       ]);
 
       setProjects(projectsData);
       setLeadership(leadershipData);
+      setGallery(galleryData);
+      // Merge fetched content with defaults (defaults act as fallback)
+      setSiteContent({ ...DEFAULT_SITE_CONTENT, ...contentData });
     } catch (err) {
       console.error('Error fetching data from Supabase:', err);
       setError('Failed to load data. Please check your connection and try again.');
@@ -58,11 +64,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     fetchData();
   }, []);
-
-  // Sync gallery with LocalStorage (Gallery still uses localStorage)
-  useEffect(() => {
-    localStorage.setItem('leo_gallery', JSON.stringify(gallery));
-  }, [gallery]);
 
   // Project Actions
   const addProject = async (project: Omit<Project, 'id'>) => {
@@ -100,7 +101,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     try {
       const roleType = type === 'executive' ? 'Executive' : 'Board';
       const newMember = await leadershipAPI.create(member, roleType);
-      
+
       setLeadership(prev => ({
         ...prev,
         [type]: [...prev[type], newMember]
@@ -115,7 +116,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     try {
       const roleType = type === 'executive' ? 'Executive' : 'Board';
       const updated = await leadershipAPI.update(updatedMember.id, updatedMember, roleType);
-      
+
       setLeadership(prev => ({
         ...prev,
         [type]: prev[type].map(m => m.id === updated.id ? updated : m)
@@ -129,7 +130,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const deleteMember = async (id: number, type: 'executive' | 'board') => {
     try {
       await leadershipAPI.delete(id);
-      
+
       setLeadership(prev => ({
         ...prev,
         [type]: prev[type].filter(m => m.id !== id)
@@ -140,14 +141,62 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Gallery Actions (still using localStorage)
-  const addImage = (image: Omit<GalleryImage, 'id'>) => {
-    const newImage = { ...image, id: Date.now() };
-    setGallery([...gallery, newImage]);
+  // Gallery Actions (now Supabase-backed)
+  const addImage = async (image: Omit<GalleryImage, 'id'>) => {
+    try {
+      const newImage = await galleryAPI.create(image);
+      setGallery(prev => [...prev, newImage]);
+    } catch (err) {
+      console.error('Error adding gallery image:', err);
+      throw err;
+    }
   };
 
-  const deleteImage = (id: number) => {
-    setGallery(gallery.filter(img => img.id !== id));
+  const updateImage = async (id: number, updates: Partial<GalleryImage>) => {
+    try {
+      const updated = await galleryAPI.update(id, updates);
+      setGallery(prev => prev.map(img => img.id === updated.id ? updated : img));
+    } catch (err) {
+      console.error('Error updating gallery image:', err);
+      throw err;
+    }
+  };
+
+  const deleteImage = async (id: number) => {
+    try {
+      await galleryAPI.delete(id);
+      setGallery(prev => prev.filter(img => img.id !== id));
+    } catch (err) {
+      console.error('Error deleting gallery image:', err);
+      throw err;
+    }
+  };
+
+  // Site Content Actions
+  const updateSiteContent = async (key: string, value: string) => {
+    try {
+      await siteContentAPI.update(key, value);
+      setSiteContent(prev => ({ ...prev, [key]: value }));
+    } catch (err) {
+      console.error('Error updating site content:', err);
+      throw err;
+    }
+  };
+
+  const bulkUpdateSiteContent = async (entries: { key: string; value: string }[]) => {
+    try {
+      await siteContentAPI.bulkUpdate(entries);
+      setSiteContent(prev => {
+        const updated = { ...prev };
+        entries.forEach(({ key, value }) => {
+          updated[key] = value;
+        });
+        return updated;
+      });
+    } catch (err) {
+      console.error('Error bulk updating site content:', err);
+      throw err;
+    }
   };
 
   // Refresh all data
@@ -160,6 +209,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       projects,
       leadership,
       gallery,
+      siteContent,
       loading,
       error,
       addProject,
@@ -169,7 +219,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       updateMember,
       deleteMember,
       addImage,
+      updateImage,
       deleteImage,
+      updateSiteContent,
+      bulkUpdateSiteContent,
       refreshData
     }}>
       {children}

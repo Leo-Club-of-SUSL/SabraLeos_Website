@@ -1,7 +1,10 @@
 import { motion } from 'framer-motion';
+import { useData } from '../context/DataContext';
 import { Mail, Phone, MapPin, Facebook, Instagram } from 'lucide-react';
 
 const Contact = () => {
+  const { siteContent } = useData();
+
   return (
     <section id="contact" className="py-20 bg-[var(--color-leo-maroon)] text-white">
       <div className="container mx-auto px-6">
@@ -15,7 +18,7 @@ const Contact = () => {
             <p className="text-red-100 mb-10 text-lg">
               Interested in joining or have a question? We'd love to hear from you.
             </p>
-            
+
             <div className="space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="bg-[var(--color-leo-gold)] p-3 rounded-full text-[var(--color-leo-maroon)]">
@@ -23,17 +26,17 @@ const Contact = () => {
                 </div>
                 <div>
                   <h4 className="font-bold">Email Us</h4>
-                  <p className="text-red-100">leoclub@example.com</p>
+                  <p className="text-red-100">{siteContent.contact_email}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-4">
                 <div className="bg-[var(--color-leo-gold)] p-3 rounded-full text-[var(--color-leo-maroon)]">
                   <Phone size={24} />
                 </div>
                 <div>
                   <h4 className="font-bold">Call Us</h4>
-                  <p className="text-red-100">+1 234 567 890</p>
+                  <p className="text-red-100">{siteContent.contact_phone}</p>
                 </div>
               </div>
 
@@ -43,7 +46,7 @@ const Contact = () => {
                 </div>
                 <div>
                   <h4 className="font-bold">Visit Us</h4>
-                  <p className="text-red-100">123 Leo Street, City Name</p>
+                  <p className="text-red-100">{siteContent.contact_address}</p>
                 </div>
               </div>
             </div>
@@ -51,10 +54,10 @@ const Contact = () => {
             <div className="mt-10">
               <h4 className="font-bold mb-4">Follow Us</h4>
               <div className="flex space-x-4">
-                <a href="#" className="bg-white/10 p-3 rounded-full hover:bg-[var(--color-leo-gold)] hover:text-[var(--color-leo-maroon)] transition-colors">
+                <a href={siteContent.contact_facebook} target="_blank" rel="noopener noreferrer" className="bg-white/10 p-3 rounded-full hover:bg-[var(--color-leo-gold)] hover:text-[var(--color-leo-maroon)] transition-colors">
                   <Facebook size={24} />
                 </a>
-                <a href="#" className="bg-white/10 p-3 rounded-full hover:bg-[var(--color-leo-gold)] hover:text-[var(--color-leo-maroon)] transition-colors">
+                <a href={siteContent.contact_instagram} target="_blank" rel="noopener noreferrer" className="bg-white/10 p-3 rounded-full hover:bg-[var(--color-leo-gold)] hover:text-[var(--color-leo-maroon)] transition-colors">
                   <Instagram size={24} />
                 </a>
               </div>
@@ -70,30 +73,30 @@ const Contact = () => {
             <form className="space-y-6">
               <div>
                 <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all"
                   placeholder="Your Name"
                 />
               </div>
               <div>
                 <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Email</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all"
                   placeholder="your@email.com"
                 />
               </div>
               <div>
                 <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Message</label>
-                <textarea 
+                <textarea
                   rows={4}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all"
                   placeholder="How can we help you?"
                 ></textarea>
               </div>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="w-full bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] font-bold py-4 rounded-lg hover:bg-[#eec136] transition-colors shadow-lg cursor-pointer"
               >
                 Send Message

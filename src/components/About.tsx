@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion';
-import { ABOUT_CONTENT } from '../data';
+import { useData } from '../context/DataContext';
 import { Target, Eye, History, Heart } from 'lucide-react';
 
 const About = () => {
+  const { siteContent } = useData();
+
   const cards = [
-    { title: "Our Mission", text: ABOUT_CONTENT.mission, icon: Target },
-    { title: "Our Vision", text: ABOUT_CONTENT.vision, icon: Eye },
-    { title: "Our History", text: ABOUT_CONTENT.history, icon: History },
+    { title: "Our Mission", text: siteContent.about_mission, icon: Target },
+    { title: "Our Vision", text: siteContent.about_vision, icon: Eye },
+    { title: "Our History", text: siteContent.about_history, icon: History },
   ];
 
   return (
@@ -45,7 +47,7 @@ const About = () => {
         </div>
 
         {/* Values Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -53,12 +55,12 @@ const About = () => {
           className="mt-20 bg-[var(--color-leo-maroon)] rounded-3xl p-10 md:p-16 text-white text-center relative overflow-hidden"
         >
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-             {/* Abstract pattern could go here */}
+            {/* Abstract pattern could go here */}
           </div>
           <Heart className="w-16 h-16 mx-auto mb-6 text-[var(--color-leo-gold)]" />
           <h3 className="text-3xl font-bold mb-6">Our Core Values</h3>
           <p className="text-lg md:text-xl max-w-3xl mx-auto text-red-100">
-            Leadership, Experience, Opportunity. We believe in serving our community with integrity, passion, and a commitment to making the world a better place.
+            {siteContent.about_values}
           </p>
         </motion.div>
       </div>
