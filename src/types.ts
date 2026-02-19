@@ -20,6 +20,23 @@ export interface LeadershipMemberDB {
     created_at: string;
 }
 
+export interface SiteContentDB {
+    id: number;
+    key: string;
+    value: string;
+    section: string;
+    updated_at: string;
+}
+
+export interface GalleryImageDB {
+    id: number;
+    image_url: string;
+    caption: string;
+    show_on_home: boolean;
+    sort_order: number;
+    created_at: string;
+}
+
 // Frontend types (for component usage)
 export interface Project {
     id: number;
@@ -46,9 +63,14 @@ export interface GalleryImage {
     id: number;
     src: string;
     alt: string;
+    showOnHome: boolean;
+    sortOrder: number;
 }
 
 export interface LeadershipData {
     executive: LeadershipMember[];
     board: LeadershipMember[];
 }
+
+// Site content is a simple key-value map
+export type SiteContent = Record<string, string>;

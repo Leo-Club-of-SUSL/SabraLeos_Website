@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
 @theme {
   --color-leo-gold: #FDBE15;
@@ -39,7 +39,8 @@ body {
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 100px; /* Offset for fixed navbar */
+  scroll-padding-top: 100px;
+  /* Offset for fixed navbar */
 }
 
 /* Custom Scrollbar */
@@ -58,4 +59,56 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-leo-gold);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+.dark::view-transition-old(root) {
+  z-index: 9999;
+}
+
+.dark::view-transition-new(root) {
+  z-index: 1;
+}
+
+@keyframes peel-off {
+  0% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+
+  100% {
+    clip-path: polygon(0 100%, 0 100%, 0 100%, 0 100%);
+  }
+}
+
+@keyframes peel-in {
+  0% {
+    clip-path: polygon(100% 0, 100% 0, 100% 0, 100% 0);
+  }
+
+  100% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
+
+/* Light to Dark: New theme (Dark) peels in from top-right */
+::view-transition-new(root) {
+  animation: peel-in 1s ease-in-out;
+}
+
+/* Dark to Light: Old theme (Dark) peels off to top-right */
+.dark::view-transition-old(root) {
+  animation: peel-off 1s ease-in-out;
 }

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Project, LeadershipMember, ProjectDB, LeadershipMemberDB } from '../types';
+import type { Project, LeadershipMember, GalleryImage, SiteContent, ProjectDB, LeadershipMemberDB, GalleryImageDB } from '../types';
 
 // ============================================
 // Data Transformation Helpers
@@ -54,6 +54,27 @@ const transformLeadershipToDB = (
     role_type: roleType,
     image_url: member.image,
     year: member.year || new Date().getFullYear() + '/' + (new Date().getFullYear() + 1),
+});
+
+/**
+ * Transform database gallery image to frontend format
+ */
+const transformGalleryFromDB = (dbImage: GalleryImageDB): GalleryImage => ({
+    id: dbImage.id,
+    src: dbImage.image_url,
+    alt: dbImage.caption,
+    showOnHome: dbImage.show_on_home,
+    sortOrder: dbImage.sort_order,
+});
+
+/**
+ * Transform frontend gallery image to database format
+ */
+const transformGalleryToDB = (image: Omit<GalleryImage, 'id'>): Omit<GalleryImageDB, 'id' | 'created_at'> => ({
+    image_url: image.src,
+    caption: image.alt,
+    show_on_home: image.showOnHome,
+    sort_order: image.sortOrder,
 });
 
 // ============================================
@@ -214,6 +235,149 @@ export const leadershipAPI = {
 
         if (error) {
             console.error('Error deleting leadership member:', error);
+            throw error;
+        }
+    },
+};
+
+// ============================================
+// Site Content API
+// ============================================
+
+export const siteContentAPI = {
+    /**
+     * Fetch all site content as a key-value map
+     */
+    async getAll(): Promise<SiteContent> {
+        const { data, error } = await supabase
+            .from('site_content')
+            .select('*');
+
+        if (error) {
+            console.error('Error fetching site content:', error);
+            throw error;
+        }
+
+        const contentMap: SiteContent = {};
+        (data || []).forEach((row: { key: string; value: string }) => {
+            contentMap[row.key] = row.value;
+        });
+        return contentMap;
+    },
+
+    /**
+     * Update a single site content entry by key
+     */
+    async update(key: string, value: string): Promise<void> {
+        const { error } = await supabase
+            .from('site_content')
+            .update({ value, updated_at: new Date().toISOString() })
+            .eq('key', key);
+
+        if (error) {
+            console.error('Error updating site content:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Bulk update multiple site content entries
+     */
+    async bulkUpdate(entries: { key: string; value: string }[]): Promise<void> {
+        const promises = entries.map(({ key, value }) =>
+            supabase
+                .from('site_content')
+                .update({ value, updated_at: new Date().toISOString() })
+                .eq('key', key)
+        );
+
+        const results = await Promise.all(promises);
+        const errors = results.filter(r => r.error);
+        if (errors.length > 0) {
+            console.error('Error bulk updating site content:', errors);
+            throw errors[0].error;
+        }
+    },
+};
+
+// ============================================
+// Gallery API
+// ============================================
+
+export const galleryAPI = {
+    /**
+     * Fetch all gallery images from Supabase
+     */
+    async getAll(): Promise<GalleryImage[]> {
+        const { data, error } = await supabase
+            .from('gallery')
+            .select('*')
+            .order('sort_order', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching gallery:', error);
+            throw error;
+        }
+
+        return (data || []).map(transformGalleryFromDB);
+    },
+
+    /**
+     * Create a new gallery image
+     */
+    async create(image: Omit<GalleryImage, 'id'>): Promise<GalleryImage> {
+        const dbImage = transformGalleryToDB(image);
+
+        const { data, error } = await supabase
+            .from('gallery')
+            .insert([dbImage])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error creating gallery image:', error);
+            throw error;
+        }
+
+        return transformGalleryFromDB(data);
+    },
+
+    /**
+     * Update a gallery image
+     */
+    async update(id: number, image: Partial<GalleryImage>): Promise<GalleryImage> {
+        const updateData: Record<string, unknown> = {};
+        if (image.src !== undefined) updateData.image_url = image.src;
+        if (image.alt !== undefined) updateData.caption = image.alt;
+        if (image.showOnHome !== undefined) updateData.show_on_home = image.showOnHome;
+        if (image.sortOrder !== undefined) updateData.sort_order = image.sortOrder;
+
+        const { data, error } = await supabase
+            .from('gallery')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating gallery image:', error);
+            throw error;
+        }
+
+        return transformGalleryFromDB(data);
+    },
+
+    /**
+     * Delete a gallery image
+     */
+    async delete(id: number): Promise<void> {
+        const { error } = await supabase
+            .from('gallery')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting gallery image:', error);
             throw error;
         }
     },

@@ -9,8 +9,10 @@ interface GalleryProps {
 
 const Gallery = ({ limit, showButton = false }: GalleryProps) => {
   const { gallery } = useData();
-  
-  const displayedGallery = limit ? gallery.slice(0, limit) : gallery;
+
+  // On home page (when limit is set), only show images marked for home display
+  const homeGallery = limit ? gallery.filter(img => img.showOnHome) : gallery;
+  const displayedGallery = limit ? homeGallery.slice(0, limit) : homeGallery;
 
   return (
     <section id="gallery" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
@@ -38,9 +40,9 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
               transition={{ delay: index * 0.1 }}
               className={`relative overflow-hidden rounded-xl group ${index === 0 || index === 3 ? 'md:col-span-2 md:row-span-2' : ''}`}
             >
-              <img 
-                src={img.src} 
-                alt={img.alt} 
+              <img
+                src={img.src}
+                alt={img.alt}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -50,10 +52,10 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
           ))}
         </div>
 
-        {showButton && gallery.length > (limit || 0) && (
+        {showButton && homeGallery.length > (limit || 0) && (
           <div className="flex justify-center mt-12">
-            <Link 
-              to="/gallery" 
+            <Link
+              to="/gallery"
               className="px-8 py-3 bg-[var(--color-leo-maroon)] text-white rounded-full font-semibold hover:bg-red-900 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
             >
               Show More
