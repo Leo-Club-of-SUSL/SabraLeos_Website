@@ -1,8 +1,17 @@
 import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
+import { Link } from 'react-router-dom';
 
-const Gallery = () => {
+interface GalleryProps {
+  limit?: number;
+  showButton?: boolean;
+}
+
+const Gallery = ({ limit, showButton = false }: GalleryProps) => {
   const { gallery } = useData();
+  
+  const displayedGallery = limit ? gallery.slice(0, limit) : gallery;
+
   return (
     <section id="gallery" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
       <div className="container mx-auto px-6">
@@ -20,7 +29,7 @@ const Gallery = () => {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
-          {gallery.map((img, index) => (
+          {displayedGallery.map((img, index) => (
             <motion.div
               key={img.id}
               initial={{ opacity: 0, scale: 0.9 }}
@@ -40,6 +49,17 @@ const Gallery = () => {
             </motion.div>
           ))}
         </div>
+
+        {showButton && gallery.length > (limit || 0) && (
+          <div className="flex justify-center mt-12">
+            <Link 
+              to="/gallery" 
+              className="px-8 py-3 bg-[var(--color-leo-maroon)] text-white rounded-full font-semibold hover:bg-red-900 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              Show More
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

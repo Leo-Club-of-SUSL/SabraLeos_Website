@@ -37,14 +37,14 @@ const Navbar = () => {
     <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-md py-4' : 'bg-transparent py-6'}`}>
       <div className="container mx-auto px-6 flex justify-between items-center">
         <div onClick={() => navigate('/')} className="flex items-center gap-3 cursor-pointer">
-          <img 
-            src="/Images/Round_logo.png" 
-            alt="Leo Club Logo" 
-            className="w-12 h-12 md:w-14 md:h-14 object-contain drop-shadow-md" 
+          <img
+            src="/Images/Round_logo.png"
+            alt="Leo Club Logo"
+            className="w-12 h-12 md:w-14 md:h-14 object-contain drop-shadow-md"
           />
           <div className={`font-bold tracking-tighter flex flex-col leading-tight ${scrolled ? 'text-[var(--color-leo-maroon)] dark:text-white' : 'text-white'}`}>
-             <span className="text-xl md:text-2xl">LEO CLUB</span>
-             <span className="text-xs md:text-sm font-medium opacity-90">Sabaragamuwa University of Sri Lanka</span>
+            <span className="text-xl md:text-2xl">LEO CLUB</span>
+            <span className="text-xs md:text-sm font-medium opacity-90">Sabaragamuwa University of Sri Lanka</span>
           </div>
         </div>
 
@@ -57,6 +57,7 @@ const Navbar = () => {
                 to={link.href}
                 smooth={true}
                 duration={500}
+                offset={-100}
                 className={`cursor-pointer font-medium transition-colors ${scrolled ? 'text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)]' : 'text-white/90 hover:text-[var(--color-leo-gold)]'}`}
               >
                 {link.name}
@@ -71,19 +72,19 @@ const Navbar = () => {
               </button>
             )
           ))}
-          
+
           <div className={`w-px h-6 mx-4 ${scrolled ? 'bg-gray-300 dark:bg-gray-700' : 'bg-white/30'}`}></div>
 
-          <button 
-            onClick={toggleTheme} 
+          <button
+            onClick={toggleTheme}
             className={`p-2 rounded-full transition-colors ${scrolled ? 'hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-yellow-400' : 'hover:bg-white/10 text-white'}`}
             aria-label="Toggle Theme"
           >
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
 
-          <RouterLink 
-            to="/admin" 
+          <RouterLink
+            to="/admin"
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-leo-maroon)] text-white hover:bg-red-900 transition-colors text-sm font-medium"
           >
             <UserCog size={16} />
@@ -93,13 +94,13 @@ const Navbar = () => {
 
         {/* Mobile Menu Button */}
         <div className="md:hidden flex items-center gap-4">
-          <button 
-            onClick={toggleTheme} 
+          <button
+            onClick={toggleTheme}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-yellow-400 transition-colors"
           >
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
-          
+
           <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700 dark:text-white">
             {isOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
@@ -117,12 +118,13 @@ const Navbar = () => {
           >
             <div className="flex flex-col items-center py-4 space-y-4">
               {NAV_LINKS.map((link) => (
-                 isHomePage ? (
+                isHomePage ? (
                   <ScrollLink
                     key={link.name}
                     to={link.href}
                     smooth={true}
                     duration={500}
+                    offset={-100}
                     onClick={() => setIsOpen(false)}
                     className="text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)] cursor-pointer font-medium text-lg"
                   >
@@ -138,8 +140,8 @@ const Navbar = () => {
                   </button>
                 )
               ))}
-              <RouterLink 
-                to="/admin" 
+              <RouterLink
+                to="/admin"
                 onClick={() => setIsOpen(false)}
                 className="flex items-center gap-2 px-6 py-2 rounded-full bg-[var(--color-leo-maroon)] text-white hover:bg-red-900 transition-colors font-medium"
               >

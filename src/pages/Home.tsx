@@ -15,7 +15,7 @@ const Home = () => {
       <About />
       <Projects />
       <Leadership />
-      <Gallery />
+      <Gallery limit={6} showButton={true} />
       <Contact />
       <Footer />
     </>
