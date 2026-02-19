@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link as ScrollLink } from 'react-scroll';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Sun, Moon, UserCog } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,13 +21,26 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      // Small timeout to allow potential navigation/rendering to complete if needed, 
+      // but for same-page it should be almost instant.
+      // However, for pure same-page smooth scroll, we can just call it directly.
+      // If we are redirecting from another page, the timeout in handleNavClick handles it.
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const handleNavClick = (href: string) => {
     setIsOpen(false);
-    if (!isHomePage) {
+    if (isHomePage) {
+      scrollToSection(href);
+    } else {
       navigate('/');
+      // Wait for navigation to complete before scrolling
       setTimeout(() => {
-        const element = document.getElementById(href);
-        if (element) element.scrollIntoView({ behavior: 'smooth' });
+        scrollToSection(href);
       }, 100);
     }
   };
@@ -51,26 +63,13 @@ const Navbar = () => {
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center space-x-8">
           {NAV_LINKS.map((link) => (
-            isHomePage ? (
-              <ScrollLink
-                key={link.name}
-                to={link.href}
-                smooth={true}
-                duration={500}
-                offset={-100}
-                className={`cursor-pointer font-medium transition-colors ${scrolled ? 'text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)]' : 'text-white/90 hover:text-[var(--color-leo-gold)]'}`}
-              >
-                {link.name}
-              </ScrollLink>
-            ) : (
-              <button
-                key={link.name}
-                onClick={() => handleNavClick(link.href)}
-                className={`cursor-pointer font-medium transition-colors bg-transparent border-none ${scrolled ? 'text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)]' : 'text-white/90 hover:text-[var(--color-leo-gold)]'}`}
-              >
-                {link.name}
-              </button>
-            )
+            <button
+              key={link.name}
+              onClick={() => handleNavClick(link.href)}
+              className={`cursor-pointer font-medium transition-colors bg-transparent border-none ${scrolled ? 'text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)]' : 'text-white/90 hover:text-[var(--color-leo-gold)]'}`}
+            >
+              {link.name}
+            </button>
           ))}
 
           <div className={`w-px h-6 mx-4 ${scrolled ? 'bg-gray-300 dark:bg-gray-700' : 'bg-white/30'}`}></div>
@@ -118,27 +117,13 @@ const Navbar = () => {
           >
             <div className="flex flex-col items-center py-4 space-y-4">
               {NAV_LINKS.map((link) => (
-                isHomePage ? (
-                  <ScrollLink
-                    key={link.name}
-                    to={link.href}
-                    smooth={true}
-                    duration={500}
-                    offset={-100}
-                    onClick={() => setIsOpen(false)}
-                    className="text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)] cursor-pointer font-medium text-lg"
-                  >
-                    {link.name}
-                  </ScrollLink>
-                ) : (
-                  <button
-                    key={link.name}
-                    onClick={() => handleNavClick(link.href)}
-                    className="text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)] cursor-pointer font-medium text-lg bg-transparent border-none"
-                  >
-                    {link.name}
-                  </button>
-                )
+                <button
+                  key={link.name}
+                  onClick={() => handleNavClick(link.href)}
+                  className="text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)] cursor-pointer font-medium text-lg bg-transparent border-none"
+                >
+                  {link.name}
+                </button>
               ))}
               <RouterLink
                 to="/admin"

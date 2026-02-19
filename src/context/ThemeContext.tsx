@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import type { ReactNode } from 'react';
 
 type Theme = 'light' | 'dark';
@@ -26,8 +27,24 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  const toggleTheme = async () => {
+    // Check if the browser supports View Transitions
+    if (!document.startViewTransition) {
+      setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+      return;
+    }
+
+    try {
+      // Use View Transition API
+      await document.startViewTransition(() => {
+        flushSync(() => {
+          setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+        });
+      }).ready;
+    } catch (error) {
+      // Fallback if something goes wrong
+      setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+    }
   };
 
   return (
