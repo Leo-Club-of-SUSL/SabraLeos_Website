@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2, Shield } from 'lucide-react';
@@ -8,18 +7,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-    const { isAuthenticated, loading, signOut } = useAuth();
-    const hasMounted = useRef(false);
-
-    // Auto sign-out when leaving the admin area
-    useEffect(() => {
-        hasMounted.current = true;
-        return () => {
-            if (hasMounted.current) {
-                signOut();
-            }
-        };
-    }, [signOut]);
+    const { isAuthenticated, loading } = useAuth();
 
     if (loading) {
         return (

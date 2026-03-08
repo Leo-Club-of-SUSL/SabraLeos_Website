@@ -52,16 +52,16 @@ const Navbar = () => {
           <img
             src="/Images/Round_logo.png"
             alt="Leo Club Logo"
-            className="w-12 h-12 md:w-14 md:h-14 object-contain drop-shadow-md"
+            className="w-12 h-12 lg:w-14 lg:h-14 object-contain drop-shadow-md"
           />
           <div className={`font-bold tracking-tighter flex flex-col leading-tight ${scrolled ? 'text-[var(--color-leo-maroon)] dark:text-white' : 'text-white'}`}>
-            <span className="text-xl md:text-2xl">LEO CLUB</span>
-            <span className="text-xs md:text-sm font-medium opacity-90">Sabaragamuwa University of Sri Lanka</span>
+            <span className="text-xl lg:text-2xl">LEO CLUB</span>
+            <span className="text-xs lg:text-sm font-medium opacity-90">Sabaragamuwa University of Sri Lanka</span>
           </div>
         </div>
 
         {/* Desktop Menu */}
-        <div className="hidden md:flex items-center space-x-8">
+        <div className="hidden lg:flex items-center space-x-8">
           {NAV_LINKS.map((link) => (
             <button
               key={link.name}
@@ -92,7 +92,7 @@ const Navbar = () => {
         </div>
 
         {/* Mobile Menu Button */}
-        <div className="md:hidden flex items-center gap-4">
+        <div className="lg:hidden flex items-center gap-4">
           <button
             onClick={toggleTheme}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-yellow-400 transition-colors"
@@ -113,7 +113,7 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800"
+            className="lg:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800"
           >
             <div className="flex flex-col items-center py-4 space-y-4">
               {NAV_LINKS.map((link) => (
