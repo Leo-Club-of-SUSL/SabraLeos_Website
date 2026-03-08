@@ -1,4 +1,4 @@
-import { Heart } from 'lucide-react';
+
 import { useData } from '../context/DataContext';
 
 const Footer = () => {
