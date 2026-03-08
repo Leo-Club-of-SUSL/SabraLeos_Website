@@ -48,6 +48,8 @@ const SECTION_FIELDS: Record<string, { key: string; label: string; type: 'text' 
     { key: 'contact_address', label: 'Address', type: 'text' },
     { key: 'contact_facebook', label: 'Facebook URL', type: 'url' },
     { key: 'contact_instagram', label: 'Instagram URL', type: 'url' },
+    { key: 'contact_whatsapp', label: 'WhatsApp Channel URL', type: 'url' },
+    { key: 'contact_linkedin', label: 'LinkedIn URL', type: 'url' },
   ],
   footer: [
     { key: 'footer_club_name', label: 'Club Name', type: 'text' },
@@ -273,8 +275,8 @@ const AdminDashboard = () => {
                 key={tab.key}
                 onClick={() => handleTabChange(tab.key)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 ${isActive
-                    ? 'bg-[var(--color-leo-maroon)] text-white shadow-lg shadow-red-900/20'
-                    : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-100 dark:border-slate-700'
+                  ? 'bg-[var(--color-leo-maroon)] text-white shadow-lg shadow-red-900/20'
+                  : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-100 dark:border-slate-700'
                   }`}
               >
                 <Icon size={16} />
@@ -327,8 +329,8 @@ const AdminDashboard = () => {
                         <p className="font-semibold text-gray-800 dark:text-white truncate">{project.title}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${project.category === 'Completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                              project.category === 'Ongoing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                                'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                            project.category === 'Ongoing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                              'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                             }`}>{project.category}</span>
                           {project.date && <span className="text-xs text-gray-400">{project.date}</span>}
                         </div>
@@ -409,8 +411,8 @@ const AdminDashboard = () => {
                   {CONTENT_SECTIONS.map(section => (
                     <button key={section} onClick={() => handleContentSectionChange(section)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${contentSection === section
-                          ? 'bg-[var(--color-leo-maroon)] text-white shadow-md'
-                          : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600'
+                        ? 'bg-[var(--color-leo-maroon)] text-white shadow-md'
+                        : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600'
                         }`}
                     >{section}</button>
                   ))}

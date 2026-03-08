@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Mail, Phone, MapPin, Facebook, Instagram } from 'lucide-react';
+import { Mail, Phone, MapPin, Facebook, Instagram, MessageCircle, Linkedin } from 'lucide-react';
 
 const Contact = () => {
   const { siteContent } = useData();
@@ -59,6 +59,12 @@ const Contact = () => {
                 </a>
                 <a href={siteContent.contact_instagram} target="_blank" rel="noopener noreferrer" className="bg-white/10 p-3 rounded-full hover:bg-[var(--color-leo-gold)] hover:text-[var(--color-leo-maroon)] transition-colors">
                   <Instagram size={24} />
+                </a>
+                <a href={siteContent.contact_whatsapp || '#'} target="_blank" rel="noopener noreferrer" className="bg-white/10 p-3 rounded-full hover:bg-[var(--color-leo-gold)] hover:text-[var(--color-leo-maroon)] transition-colors">
+                  <MessageCircle size={24} />
+                </a>
+                <a href={siteContent.contact_linkedin || '#'} target="_blank" rel="noopener noreferrer" className="bg-white/10 p-3 rounded-full hover:bg-[var(--color-leo-gold)] hover:text-[var(--color-leo-maroon)] transition-colors">
+                  <Linkedin size={24} />
                 </a>
               </div>
             </div>

@@ -16,7 +16,7 @@ const Footer = () => {
           <span>&copy; {new Date().getFullYear()} All Rights Reserved.</span>
           <span className="mx-2">|</span>
           <span className="flex items-center">
-            Made with <Heart size={14} className="mx-1 text-[var(--color-leo-gold)]" fill="#FDBE15" /> by Leo Club
+            Made by Leo Club of SUSL
           </span>
         </div>
       </div>

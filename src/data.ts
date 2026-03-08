@@ -30,6 +30,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     contact_address: '123 Leo Street, City Name',
     contact_facebook: '#',
     contact_instagram: '#',
+    contact_whatsapp: '#',
+    contact_linkedin: '#',
 
     // Footer section
     footer_club_name: 'Leo Club of [City Name]',
