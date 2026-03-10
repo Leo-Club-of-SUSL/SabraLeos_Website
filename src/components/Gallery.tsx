@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
+
+const GALLERY_PAGE_SIZE = 12;
 
 interface GalleryProps {
   limit?: number;
@@ -9,10 +12,14 @@ interface GalleryProps {
 
 const Gallery = ({ limit, showButton = false }: GalleryProps) => {
   const { gallery } = useData();
+  const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
 
   // On home page (when limit is set), only show images marked for home display
   const homeGallery = limit ? gallery.filter(img => img.showOnHome) : gallery;
-  const displayedGallery = limit ? homeGallery.slice(0, limit) : homeGallery;
+  const displayedGallery = limit
+    ? homeGallery.slice(0, limit)
+    : homeGallery.slice(0, visibleCount);
+  const hasMore = !limit && visibleCount < homeGallery.length;
 
   return (
     <section id="gallery" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
@@ -44,6 +51,8 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
                 src={img.src}
                 alt={img.alt}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                loading="lazy"
+                onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                 <p className="text-white font-bold text-lg">{img.alt}</p>
@@ -60,6 +69,18 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
             >
               Show More
             </Link>
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="flex justify-center mt-12">
+            <button
+              onClick={() => setVisibleCount(c => c + GALLERY_PAGE_SIZE)}
+              aria-label="Load more gallery images"
+              className="px-8 py-3 bg-[var(--color-leo-maroon)] text-white rounded-full font-semibold hover:bg-red-900 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              Load More
+            </button>
           </div>
         )}
       </div>

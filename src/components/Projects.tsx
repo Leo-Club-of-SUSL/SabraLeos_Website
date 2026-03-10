@@ -8,8 +8,8 @@ const Projects = () => {
   const [filter, setFilter] = useState('All');
   const categories = ['All', 'Completed', 'Ongoing', 'Upcoming'];
 
-  const filteredProjects = filter === 'All' 
-    ? projects 
+  const filteredProjects = filter === 'All'
+    ? projects
     : projects.filter(p => p.category === filter);
 
   if (loading) {
@@ -31,8 +31,9 @@ const Projects = () => {
         <div className="container mx-auto px-6">
           <div className="flex flex-col items-center justify-center min-h-[400px]">
             <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
+              aria-label="Retry loading projects"
               className="px-6 py-2 bg-[var(--color-leo-maroon)] text-white rounded-lg hover:bg-red-900 transition-colors"
             >
               Retry
@@ -54,17 +55,16 @@ const Projects = () => {
         >
           <h2 className="text-4xl font-bold text-[var(--color-leo-maroon)] dark:text-white mb-4">Our Projects</h2>
           <div className="w-20 h-1 bg-[var(--color-leo-gold)] mx-auto rounded-full mb-8"></div>
-          
+
           <div className="flex flex-wrap justify-center gap-4">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setFilter(cat)}
-                className={`px-6 py-2 rounded-full font-medium transition-all cursor-pointer ${
-                  filter === cat 
-                    ? 'bg-[var(--color-leo-maroon)] text-white shadow-lg scale-105' 
-                    : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
-                }`}
+                className={`px-6 py-2 rounded-full font-medium transition-all cursor-pointer ${filter === cat
+                  ? 'bg-[var(--color-leo-maroon)] text-white shadow-lg scale-105'
+                  : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                  }`}
               >
                 {cat}
               </button>
@@ -85,20 +85,22 @@ const Projects = () => {
                 className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col border border-gray-100 dark:border-slate-700"
               >
                 <div className="relative h-48 overflow-hidden shrink-0">
-                  <img 
-                    src={project.image} 
-                    alt={project.title} 
+                  <img
+                    src={project.image}
+                    alt={project.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    loading="lazy"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
                   />
                   <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] uppercase tracking-wider">
                     {project.category}
                   </div>
                 </div>
-                
+
                 <div className="p-6 flex flex-col flex-grow">
                   <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{project.title}</h3>
                   <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-3 flex-grow">{project.description}</p>
-                  
+
                   <div className="space-y-3 mt-auto">
                     {project.category === 'Completed' && (
                       <>
@@ -121,7 +123,7 @@ const Projects = () => {
                     )}
 
                     {project.category === 'Upcoming' && (
-                      <a 
+                      <a
                         href={project.registrationLink}
                         target="_blank"
                         rel="noopener noreferrer"

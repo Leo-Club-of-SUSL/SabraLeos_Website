@@ -14,6 +14,8 @@ const Hero = () => {
           src={siteContent.hero_bg_image}
           alt="Leo Club Background"
           className="w-full h-full object-cover"
+          loading="lazy"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
         <div className="absolute inset-0 bg-[var(--color-leo-maroon)]/80 mix-blend-multiply" />
         <div className="absolute inset-0 bg-black/30" />
