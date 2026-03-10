@@ -24,8 +24,9 @@ const Leadership = () => {
         <div className="container mx-auto px-6">
           <div className="flex flex-col items-center justify-center min-h-[400px]">
             <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
+              aria-label="Retry loading leadership"
               className="px-6 py-2 bg-[var(--color-leo-maroon)] text-white rounded-lg hover:bg-red-900 transition-colors"
             >
               Retry
@@ -65,10 +66,12 @@ const Leadership = () => {
                 className="text-center group"
               >
                 <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-lg group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
-                  <img 
-                    src={member.image} 
-                    alt={member.name} 
+                  <img
+                    src={member.image}
+                    alt={member.name}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    loading="lazy"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
                   />
                 </div>
                 <h4 className="text-xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]">{member.name}</h4>
@@ -92,10 +95,12 @@ const Leadership = () => {
                 className="text-center group"
               >
                 <div className="relative w-40 h-40 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-md group-hover:border-[var(--color-leo-maroon)] dark:group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
-                  <img 
-                    src={member.image} 
-                    alt={member.name} 
+                  <img
+                    src={member.image}
+                    alt={member.name}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    loading="lazy"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
                   />
                 </div>
                 <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200">{member.name}</h4>

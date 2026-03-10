@@ -56,6 +56,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error('Error fetching data from Supabase:', err);
       setError('Failed to load data. Please check your connection and try again.');
+      // Retain default/existing state so UI remains functional
+      setProjects(prev => prev.length ? prev : []);
+      setLeadership(prev => (prev.executive.length || prev.board.length) ? prev : { executive: [], board: [] });
+      setGallery(prev => prev.length ? prev : []);
+      setSiteContent(prev => Object.keys(prev).length ? prev : DEFAULT_SITE_CONTENT);
     } finally {
       setLoading(false);
     }
