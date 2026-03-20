@@ -54,6 +54,17 @@ CREATE TABLE IF NOT EXISTS gallery (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- ============================================
+-- Table: awards
+-- ============================================
+CREATE TABLE IF NOT EXISTS awards (
+  id BIGSERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT NOT NULL,
+  year TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- ============================================
 -- Row Level Security (RLS) Policies
 -- ============================================
 -- Enable RLS on projects table
@@ -84,6 +95,13 @@ CREATE POLICY "Allow public read access on gallery" ON gallery FOR
 SELECT TO public USING (true);
 -- Allow authenticated users to manage gallery
 CREATE POLICY "Allow authenticated users to manage gallery" ON gallery FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- Enable RLS on awards table
+ALTER TABLE awards ENABLE ROW LEVEL SECURITY;
+-- Allow public read access to awards
+CREATE POLICY "Allow public read access on awards" ON awards FOR
+SELECT TO public USING (true);
+-- Allow authenticated users to manage awards
+CREATE POLICY "Allow authenticated users to manage awards" ON awards FOR ALL TO authenticated USING (true) WITH CHECK (true);
 -- ============================================
 -- Sample Data (Optional - for testing)
 -- ============================================
@@ -291,3 +309,11 @@ CREATE POLICY "Allow authenticated delete on security_logs" ON security_logs FOR
 -- Seed: add alert_email to site_content
 INSERT INTO site_content (key, value, section)
 VALUES ('alert_email', '', 'security') ON CONFLICT (key) DO NOTHING;
+
+-- Insert sample awards
+INSERT INTO awards (title, description, image_url, year)
+VALUES 
+  ('Most Consistent Club', 'Awarded for maintaining high standards throughout the year.', 'https://images.unsplash.com/photo-1578574515323-c3c8ef01456d?w=400', '2023/2024'),
+  ('Best Community Project', 'Recognized for the impact of our Blood Donation Campaign.', 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=400', '2023/2024'),
+  ('Outstanding Leadership', 'Special recognition for the club president.', 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?w=400', '2022/2023')
+ON CONFLICT DO NOTHING;

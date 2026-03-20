@@ -37,6 +37,15 @@ export interface GalleryImageDB {
     created_at: string;
 }
 
+export interface AwardDB {
+    id: number;
+    title: string;
+    image_url: string;
+    description: string | null;
+    year: string | null;
+    created_at: string;
+}
+
 // Frontend types (for component usage)
 export interface Project {
     id: number;
@@ -65,6 +74,14 @@ export interface GalleryImage {
     alt: string;
     showOnHome: boolean;
     sortOrder: number;
+}
+
+export interface Award {
+    id: number;
+    title: string;
+    image: string;
+    description?: string;
+    year?: string;
 }
 
 export interface LeadershipData {

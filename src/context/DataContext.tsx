@@ -1,13 +1,14 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { DEFAULT_SITE_CONTENT } from '../data';
-import type { Project, LeadershipData, GalleryImage, LeadershipMember, SiteContent } from '../types';
-import { projectsAPI, leadershipAPI, galleryAPI, siteContentAPI } from '../lib/supabaseService';
+import type { Award, Project, LeadershipData, GalleryImage, LeadershipMember, SiteContent } from '../types';
+import { awardsAPI, projectsAPI, leadershipAPI, galleryAPI, siteContentAPI } from '../lib/supabaseService';
 
 interface DataContextType {
   projects: Project[];
   leadership: LeadershipData;
   gallery: GalleryImage[];
+  awards: Award[];
   siteContent: SiteContent;
   loading: boolean;
   error: string | null;
@@ -20,6 +21,9 @@ interface DataContextType {
   addImage: (image: Omit<GalleryImage, 'id'>) => Promise<void>;
   updateImage: (id: number, image: Partial<GalleryImage>) => Promise<void>;
   deleteImage: (id: number) => Promise<void>;
+  addAward: (award: Omit<Award, 'id'>) => Promise<void>;
+  updateAward: (id: number, award: Partial<Award>) => Promise<void>;
+  deleteAward: (id: number) => Promise<void>;
   updateSiteContent: (key: string, value: string) => Promise<void>;
   bulkUpdateSiteContent: (entries: { key: string; value: string }[]) => Promise<void>;
   refreshData: () => Promise<void>;
@@ -31,6 +35,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [leadership, setLeadership] = useState<LeadershipData>({ executive: [], board: [] });
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [awards, setAwards] = useState<Award[]>([]);
   const [siteContent, setSiteContent] = useState<SiteContent>(DEFAULT_SITE_CONTENT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,26 +46,42 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       setError(null);
 
-      const [projectsData, leadershipData, galleryData, contentData] = await Promise.all([
+      const results = await Promise.allSettled([
         projectsAPI.getAll(),
         leadershipAPI.getAll(),
         galleryAPI.getAll(),
+        awardsAPI.getAll(),
         siteContentAPI.getAll(),
       ]);
 
-      setProjects(projectsData);
-      setLeadership(leadershipData);
-      setGallery(galleryData);
-      // Merge fetched content with defaults (defaults act as fallback)
-      setSiteContent({ ...DEFAULT_SITE_CONTENT, ...contentData });
+      // Assign results or keep defaults if they failed
+      if (results[0].status === 'fulfilled') setProjects(results[0].value);
+      else console.error('Error fetching projects:', results[0].reason);
+
+      if (results[1].status === 'fulfilled') setLeadership(results[1].value);
+      else console.error('Error fetching leadership:', results[1].reason);
+
+      if (results[2].status === 'fulfilled') setGallery(results[2].value);
+      else console.error('Error fetching gallery:', results[2].reason);
+
+      if (results[3].status === 'fulfilled') setAwards(results[3].value);
+      else console.error('Error fetching awards:', results[3].reason);
+
+      if (results[4].status === 'fulfilled') {
+        setSiteContent({ ...DEFAULT_SITE_CONTENT, ...results[4].value });
+      } else {
+        console.error('Error fetching site content:', results[4].reason);
+      }
+
+      // If all critical data failed to load, set a global error
+      const allFailed = results.every(r => r.status === 'rejected');
+      if (allFailed) {
+        setError('Failed to load website data. Please check your connection.');
+      }
+
     } catch (err) {
-      console.error('Error fetching data from Supabase:', err);
-      setError('Failed to load data. Please check your connection and try again.');
-      // Retain default/existing state so UI remains functional
-      setProjects(prev => prev.length ? prev : []);
-      setLeadership(prev => (prev.executive.length || prev.board.length) ? prev : { executive: [], board: [] });
-      setGallery(prev => prev.length ? prev : []);
-      setSiteContent(prev => Object.keys(prev).length ? prev : DEFAULT_SITE_CONTENT);
+      console.error('Unexpected error in fetchData:', err);
+      setError('An unexpected error occurred while loading data.');
     } finally {
       setLoading(false);
     }
@@ -177,6 +198,37 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Award Actions
+  const addAward = async (award: Omit<Award, 'id'>) => {
+    try {
+      const newAward = await awardsAPI.create(award);
+      setAwards(prev => [newAward, ...prev]);
+    } catch (err) {
+      console.error('Error adding award:', err);
+      throw err;
+    }
+  };
+
+  const updateAward = async (id: number, updates: Partial<Award>) => {
+    try {
+      const updated = await awardsAPI.update(id, updates);
+      setAwards(prev => prev.map(a => a.id === updated.id ? updated : a));
+    } catch (err) {
+      console.error('Error updating award:', err);
+      throw err;
+    }
+  };
+
+  const deleteAward = async (id: number) => {
+    try {
+      await awardsAPI.delete(id);
+      setAwards(prev => prev.filter(a => a.id !== id));
+    } catch (err) {
+      console.error('Error deleting award:', err);
+      throw err;
+    }
+  };
+
   // Site Content Actions
   const updateSiteContent = async (key: string, value: string) => {
     try {
@@ -226,6 +278,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       addImage,
       updateImage,
       deleteImage,
+      awards,
+      addAward,
+      updateAward,
+      deleteAward,
       updateSiteContent,
       bulkUpdateSiteContent,
       refreshData

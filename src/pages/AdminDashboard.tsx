@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, Loader2,
   Settings, Eye, EyeOff, Shield, LogOut, AlertTriangle, CheckCircle, XCircle,
-  Lock, RefreshCw, Mail, Clock, ImagePlus
+  Lock, RefreshCw, Mail, Clock, ImagePlus, Trophy
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -11,17 +11,18 @@ import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { securityService } from '../lib/securityService';
 import type { SecurityLog } from '../lib/securityService';
-import type { Project, LeadershipMember, GalleryImage } from '../types';
+import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
 
-type TabType = 'projects' | 'leadership' | 'gallery' | 'content' | 'security';
+type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'security';
 
 // ================================================================
 // Tab Config
 // ================================================================
-const TAB_CONFIG: { key: TabType; label: string; icon: typeof FolderOpen; color: string }[] = [
+const TAB_CONFIG: { key: TabType; label: string; icon: any; color: string }[] = [
   { key: 'projects', label: 'Projects', icon: FolderOpen, color: 'bg-blue-500' },
   { key: 'leadership', label: 'Team', icon: Users, color: 'bg-emerald-500' },
   { key: 'gallery', label: 'Gallery', icon: Image, color: 'bg-purple-500' },
+  { key: 'awards', label: 'Awards', icon: Trophy, color: 'bg-amber-500' },
   { key: 'content', label: 'Content', icon: Settings, color: 'bg-orange-500' },
   { key: 'security', label: 'Security', icon: Shield, color: 'bg-red-600' },
 ];
@@ -65,10 +66,11 @@ const AdminDashboard = () => {
   const { signOut, user } = useAuth();
   const { showToast } = useToast();
   const {
-    projects, leadership, gallery, siteContent,
+    projects, leadership, gallery, siteContent, awards,
     addProject, updateProject, deleteProject,
     addMember, updateMember, deleteMember,
     addImage, updateImage, deleteImage,
+    addAward, updateAward, deleteAward,
     bulkUpdateSiteContent
   } = useData();
 
@@ -81,6 +83,7 @@ const AdminDashboard = () => {
   const [projectForm, setProjectForm] = useState<Partial<Project>>({ category: 'Upcoming', status: 'Active' });
   const [memberForm, setMemberForm] = useState<Partial<LeadershipMember>>({ type: 'executive' });
   const [imageForm, setImageForm] = useState<Partial<GalleryImage>>({ showOnHome: true, sortOrder: 0 });
+  const [awardForm, setAwardForm] = useState<Partial<Award>>({});
 
   // Content state
   const [contentForm, setContentForm] = useState<Record<string, string>>({});
@@ -103,6 +106,7 @@ const AdminDashboard = () => {
     setProjectForm({ category: 'Upcoming', status: 'Active' });
     setMemberForm({ type: 'executive' });
     setImageForm({ showOnHome: true, sortOrder: 0 });
+    setAwardForm({});
   };
 
   const handleAddClick = () => { setEditingItem(null); resetForms(); setIsModalOpen(true); };
@@ -112,6 +116,7 @@ const AdminDashboard = () => {
     if (activeTab === 'projects') setProjectForm(item);
     if (activeTab === 'leadership') setMemberForm(item);
     if (activeTab === 'gallery') setImageForm(item);
+    if (activeTab === 'awards') setAwardForm(item);
     setIsModalOpen(true);
   };
 
@@ -125,6 +130,7 @@ const AdminDashboard = () => {
           if (activeTab === 'projects') await deleteProject(id);
           if (activeTab === 'leadership' && type) await deleteMember(id, type);
           if (activeTab === 'gallery') await deleteImage(id);
+          if (activeTab === 'awards') await deleteAward(id);
           showToast('Item deleted successfully', 'success');
         } catch { showToast('Failed to delete item', 'error'); }
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
@@ -143,6 +149,8 @@ const AdminDashboard = () => {
         editingItem ? await updateMember(memberForm as LeadershipMember, t) : await addMember(memberForm as Omit<LeadershipMember, 'id'>, t);
       } else if (activeTab === 'gallery') {
         editingItem ? await updateImage(editingItem.id, imageForm as Partial<GalleryImage>) : await addImage(imageForm as Omit<GalleryImage, 'id'>);
+      } else if (activeTab === 'awards') {
+        editingItem ? await updateAward(editingItem.id, awardForm as Partial<Award>) : await addAward(awardForm as Omit<Award, 'id'>);
       }
       setIsModalOpen(false);
       resetForms();
@@ -212,11 +220,12 @@ const AdminDashboard = () => {
     if (tab === 'projects') return projects.length;
     if (tab === 'leadership') return leadership.executive.length + leadership.board.length;
     if (tab === 'gallery') return gallery.length;
+    if (tab === 'awards') return awards.length;
     return null;
   };
 
   const getEventBadge = (type: string) => {
-    const map: Record<string, { icon: typeof CheckCircle; label: string; cls: string }> = {
+    const map: Record<string, { icon: any; label: string; cls: string }> = {
       login_success: { icon: CheckCircle, label: 'Success', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
       login_failed: { icon: XCircle, label: 'Failed', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
       brute_force_detected: { icon: AlertTriangle, label: 'Brute Force', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
@@ -303,11 +312,12 @@ const AdminDashboard = () => {
                 {activeTab === 'projects' && 'Manage club projects and events'}
                 {activeTab === 'leadership' && 'Update team members and roles'}
                 {activeTab === 'gallery' && 'Upload and organize gallery images'}
+                {activeTab === 'awards' && 'Manage club awards and milestones'}
                 {activeTab === 'content' && 'Edit website text and settings'}
                 {activeTab === 'security' && 'Monitor login activity and alerts'}
               </p>
             </div>
-            {['projects', 'leadership', 'gallery'].includes(activeTab) && (
+            {['projects', 'leadership', 'gallery', 'awards'].includes(activeTab) && (
               <button onClick={handleAddClick} className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg">
                 <Plus size={16} /> Add New
               </button>
@@ -398,6 +408,29 @@ const AdminDashboard = () => {
                         </div>
                       </div>
                       <div className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white ${img.showOnHome ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* ──── AWARDS TAB ──── */}
+            {activeTab === 'awards' && (
+              awards.length === 0 ? (
+                <EmptyState icon={Trophy} text="No awards yet" sub="Add your first award to showcase it on the home page" />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {awards.map(award => (
+                    <div key={award.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors group">
+                      <img src={award.image} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0 bg-gray-100" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-gray-800 dark:text-white truncate">{award.title}</p>
+                        <p className="text-xs text-gray-400 truncate">{award.year || 'N/A'}</p>
+                      </div>
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleEditClick(award)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
+                        <button onClick={() => handleDeleteClick(award.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -505,7 +538,11 @@ const AdminDashboard = () => {
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}
             style={{ animation: 'dialogPop 0.2s ease-out' }}>
             <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white">{editingItem ? 'Edit' : 'Add New'} {activeTab === 'leadership' ? 'Member' : activeTab === 'gallery' ? 'Image' : 'Project'}</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white">{editingItem ? 'Edit' : 'Add New'} {
+                activeTab === 'leadership' ? 'Member' : 
+                activeTab === 'gallery' ? 'Image' : 
+                activeTab === 'awards' ? 'Award' : 'Project'
+              }</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-400"><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -547,6 +584,13 @@ const AdminDashboard = () => {
                 </div>
                 <FormField label="Sort Order"><input type="number" className={inputCls} value={imageForm.sortOrder || 0} onChange={e => setImageForm({ ...imageForm, sortOrder: parseInt(e.target.value) || 0 })} /></FormField>
               </>)}
+              {activeTab === 'awards' && (<>
+                <FormField label="Award Title"><input required className={inputCls} value={awardForm.title || ''} onChange={e => setAwardForm({ ...awardForm, title: e.target.value })} placeholder="e.g. Best Club Award" /></FormField>
+                <FormField label="Award Year"><input className={inputCls} value={awardForm.year || ''} onChange={e => setAwardForm({ ...awardForm, year: e.target.value })} placeholder="e.g. 2024/2025" /></FormField>
+                <FormField label="Description"><textarea rows={2} className={inputCls} value={awardForm.description || ''} onChange={e => setAwardForm({ ...awardForm, description: e.target.value })} placeholder="Briefly describe the award..." /></FormField>
+                <FormField label="Image URL"><input type="url" required className={inputCls} value={awardForm.image || ''} onChange={e => setAwardForm({ ...awardForm, image: e.target.value })} placeholder="https://..." /></FormField>
+                <ImagePreview url={awardForm.image} />
+              </>)}
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting} className="px-4 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50">Cancel</button>
                 <button type="submit" disabled={submitting} className="px-6 py-2.5 rounded-xl bg-[var(--color-leo-maroon)] text-white text-sm font-bold hover:bg-red-900 transition-all flex items-center gap-2 disabled:opacity-50 shadow-md">
@@ -581,7 +625,7 @@ const FormField = ({ label, children }: { label: string; children: React.ReactNo
   </div>
 );
 
-const EmptyState = ({ icon: Icon, text, sub }: { icon: typeof FolderOpen; text: string; sub: string }) => (
+const EmptyState = ({ icon: Icon, text, sub }: { icon: any; text: string; sub: string }) => (
   <div className="text-center py-16">
     <div className="w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
       <Icon size={28} className="text-gray-300 dark:text-gray-500" />

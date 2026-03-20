@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Project, LeadershipMember, GalleryImage, SiteContent, ProjectDB, LeadershipMemberDB, GalleryImageDB } from '../types';
+import type { Award, AwardDB, Project, LeadershipMember, GalleryImage, SiteContent, ProjectDB, LeadershipMemberDB, GalleryImageDB } from '../types';
 
 // ============================================
 // Data Transformation Helpers
@@ -75,6 +75,27 @@ const transformGalleryToDB = (image: Omit<GalleryImage, 'id'>): Omit<GalleryImag
     caption: image.alt,
     show_on_home: image.showOnHome,
     sort_order: image.sortOrder,
+});
+
+/**
+ * Transform database award to frontend award format
+ */
+const transformAwardFromDB = (dbAward: AwardDB): Award => ({
+    id: dbAward.id,
+    title: dbAward.title,
+    image: dbAward.image_url,
+    description: dbAward.description || undefined,
+    year: dbAward.year || undefined,
+});
+
+/**
+ * Transform frontend award to database format
+ */
+const transformAwardToDB = (award: Omit<Award, 'id'>): Omit<AwardDB, 'id' | 'created_at'> => ({
+    title: award.title,
+    image_url: award.image,
+    description: award.description || null,
+    year: award.year || null,
 });
 
 // ============================================
@@ -378,6 +399,89 @@ export const galleryAPI = {
 
         if (error) {
             console.error('Error deleting gallery image:', error);
+            throw error;
+        }
+    },
+};
+
+// ============================================
+// Awards API
+// ============================================
+
+export const awardsAPI = {
+    /**
+     * Fetch all awards from Supabase
+     */
+    async getAll(): Promise<Award[]> {
+        const { data, error } = await supabase
+            .from('awards')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching awards:', error);
+            throw error;
+        }
+
+        return (data || []).map(transformAwardFromDB);
+    },
+
+    /**
+     * Create a new award
+     */
+    async create(award: Omit<Award, 'id'>): Promise<Award> {
+        const dbAward = transformAwardToDB(award);
+
+        const { data, error } = await supabase
+            .from('awards')
+            .insert([dbAward])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error creating award:', error);
+            throw error;
+        }
+
+        return transformAwardFromDB(data);
+    },
+
+    /**
+     * Update an award
+     */
+    async update(id: number, award: Partial<Award>): Promise<Award> {
+        const updateData: Record<string, unknown> = {};
+        if (award.title !== undefined) updateData.title = award.title;
+        if (award.image !== undefined) updateData.image_url = award.image;
+        if (award.description !== undefined) updateData.description = award.description;
+        if (award.year !== undefined) updateData.year = award.year;
+
+        const { data, error } = await supabase
+            .from('awards')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating award:', error);
+            throw error;
+        }
+
+        return transformAwardFromDB(data);
+    },
+
+    /**
+     * Delete an award
+     */
+    async delete(id: number): Promise<void> {
+        const { error } = await supabase
+            .from('awards')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting award:', error);
             throw error;
         }
     },
