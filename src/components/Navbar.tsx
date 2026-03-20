@@ -100,7 +100,7 @@ const Navbar = () => {
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
 
-          <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700 dark:text-white">
+          <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700 dark:text-white" aria-label={isOpen ? "Close menu" : "Open menu"}>
             {isOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
         </div>
