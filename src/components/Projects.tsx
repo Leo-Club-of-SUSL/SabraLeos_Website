@@ -72,72 +72,100 @@ const Projects = () => {
           </div>
         </motion.div>
 
-        <motion.div layout className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <AnimatePresence mode='popLayout'>
-            {filteredProjects.map((project) => (
-              <motion.div
-                layout
-                key={project.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col border border-gray-100 dark:border-slate-700"
-              >
-                <div className="relative h-48 overflow-hidden shrink-0">
-                  <img
-                    src={project.image}
-                    alt={project.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
-                  />
-                  <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] uppercase tracking-wider">
-                    {project.category}
-                  </div>
-                </div>
-
-                <div className="p-6 flex flex-col flex-grow">
-                  <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{project.title}</h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-3 flex-grow">{project.description}</p>
-
-                  <div className="space-y-3 mt-auto">
-                    {project.category === 'Completed' && (
-                      <>
-                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                          <Calendar size={16} className="mr-2 text-[var(--color-leo-gold)]" />
-                          <span>{project.date}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                          <Users size={16} className="mr-2 text-[var(--color-leo-gold)]" />
-                          <span>{project.committee?.join(", ")}</span>
-                        </div>
-                      </>
-                    )}
-
-                    {project.category === 'Ongoing' && (
-                      <div className="flex items-center text-sm text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] font-medium">
-                        <Clock size={16} className="mr-2" />
-                        <span>{project.status}</span>
+        <div className="relative">
+          <motion.div 
+            className="flex gap-8 overflow-x-auto pb-8 snap-x no-scrollbar"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+          >
+            <AnimatePresence mode='popLayout'>
+              {filteredProjects
+                .sort((a, b) => {
+                  const dateA = a.date ? new Date(a.date).getTime() : 0;
+                  const dateB = b.date ? new Date(b.date).getTime() : 0;
+                  return dateB - dateA;
+                })
+                .map((project, index) => (
+                  <motion.div
+                    layout
+                    key={project.id}
+                    initial={{ opacity: 0, x: 50 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 }}
+                    className="flex-none w-80 md:w-96 snap-center bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col border border-gray-100 dark:border-slate-700 h-[500px]"
+                  >
+                    <div className="relative h-56 overflow-hidden shrink-0">
+                      <img
+                        src={project.image}
+                        alt={project.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                      />
+                      <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] uppercase tracking-wider">
+                        {project.category}
                       </div>
-                    )}
+                    </div>
 
-                    {project.category === 'Upcoming' && (
-                      <a
-                        href={project.registrationLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center w-full bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] py-2 rounded-lg font-bold hover:bg-[#eec136] transition-colors"
-                      >
-                        Join Project <ArrowRight size={16} className="ml-2" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+                    <div className="p-6 flex flex-col flex-grow">
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 line-clamp-1">{project.title}</h3>
+                      <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-4 flex-grow text-sm">{project.description}</p>
+
+                      <div className="space-y-3 mt-auto">
+                        {project.date && (
+                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                            <Calendar size={16} className="mr-2 text-[var(--color-leo-gold)]" />
+                            <span>{project.date}</span>
+                          </div>
+                        )}
+                        
+                        {project.committee && project.committee.length > 0 && (
+                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                            <Users size={16} className="mr-2 text-[var(--color-leo-gold)]" />
+                            <span className="line-clamp-1">{project.committee.join(", ")}</span>
+                          </div>
+                        )}
+
+                        {project.category === 'Ongoing' && project.status && (
+                          <div className="flex items-center text-sm text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] font-medium">
+                            <Clock size={16} className="mr-2" />
+                            <span>{project.status}</span>
+                          </div>
+                        )}
+
+                        {project.category === 'Upcoming' && project.registrationLink && (
+                          <a
+                            href={project.registrationLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center w-full bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] py-2 rounded-lg font-bold hover:bg-[#eec136] transition-colors"
+                          >
+                            Join Project <ArrowRight size={16} className="ml-2" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Custom Scrollbar Hint/Gradient */}
+          <div className="absolute top-0 right-0 h-full w-20 bg-gradient-to-l from-gray-50 dark:from-slate-950 pointer-events-none opacity-50"></div>
+          <div className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-gray-50 dark:from-slate-950 pointer-events-none opacity-50"></div>
+        </div>
+
+        <style>{`
+          .no-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}</style>
       </div>
     </section>
   );

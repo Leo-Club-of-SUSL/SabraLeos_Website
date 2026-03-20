@@ -46,7 +46,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       setError(null);
 
-      const [projectsData, leadershipData, galleryData, awardsData, contentData] = await Promise.all([
+      const results = await Promise.allSettled([
         projectsAPI.getAll(),
         leadershipAPI.getAll(),
         galleryAPI.getAll(),
@@ -54,21 +54,34 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         siteContentAPI.getAll(),
       ]);
 
-      setProjects(projectsData);
-      setLeadership(leadershipData);
-      setGallery(galleryData);
-      setAwards(awardsData);
-      // Merge fetched content with defaults (defaults act as fallback)
-      setSiteContent({ ...DEFAULT_SITE_CONTENT, ...contentData });
+      // Assign results or keep defaults if they failed
+      if (results[0].status === 'fulfilled') setProjects(results[0].value);
+      else console.error('Error fetching projects:', results[0].reason);
+
+      if (results[1].status === 'fulfilled') setLeadership(results[1].value);
+      else console.error('Error fetching leadership:', results[1].reason);
+
+      if (results[2].status === 'fulfilled') setGallery(results[2].value);
+      else console.error('Error fetching gallery:', results[2].reason);
+
+      if (results[3].status === 'fulfilled') setAwards(results[3].value);
+      else console.error('Error fetching awards:', results[3].reason);
+
+      if (results[4].status === 'fulfilled') {
+        setSiteContent({ ...DEFAULT_SITE_CONTENT, ...results[4].value });
+      } else {
+        console.error('Error fetching site content:', results[4].reason);
+      }
+
+      // If all critical data failed to load, set a global error
+      const allFailed = results.every(r => r.status === 'rejected');
+      if (allFailed) {
+        setError('Failed to load website data. Please check your connection.');
+      }
+
     } catch (err) {
-      console.error('Error fetching data from Supabase:', err);
-      setError('Failed to load data. Please check your connection and try again.');
-      // Retain default/existing state so UI remains functional
-      setProjects(prev => prev.length ? prev : []);
-      setLeadership(prev => (prev.executive.length || prev.board.length) ? prev : { executive: [], board: [] });
-      setGallery(prev => prev.length ? prev : []);
-      setAwards(prev => prev.length ? prev : []);
-      setSiteContent(prev => Object.keys(prev).length ? prev : DEFAULT_SITE_CONTENT);
+      console.error('Unexpected error in fetchData:', err);
+      setError('An unexpected error occurred while loading data.');
     } finally {
       setLoading(false);
     }
