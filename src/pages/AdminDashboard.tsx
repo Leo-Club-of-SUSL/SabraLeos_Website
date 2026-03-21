@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, Loader2, Settings, Shield, LogOut, AlertTriangle, CheckCircle, XCircle, Lock, RefreshCw, Mail, Clock, ImagePlus, Trophy } from 'lucide-react';
+import { 
+  ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, 
+  Loader2, Settings, Shield, LogOut, AlertTriangle, CheckCircle, 
+  XCircle, Lock, RefreshCw, Mail, Clock, ImagePlus, Trophy, 
+  BarChart3
+} from 'lucide-react';
 
-
-
-
+import AnalyticsWidget from '../components/admin/AnalyticsWidget';
 
 
 import { Reorder } from 'framer-motion';
@@ -20,18 +23,19 @@ import { imageService } from '../lib/imageService';
 import type { SecurityLog } from '../lib/securityService';
 import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
 
-type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'security';
+type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'security' | 'analytics';
 
 // ================================================================
 // Tab Config
 // ================================================================
 const TAB_CONFIG: { key: TabType; label: string; icon: any; color: string }[] = [
-  { key: 'projects', label: 'Projects', icon: FolderOpen, color: 'bg-blue-500' },
-  { key: 'leadership', label: 'Team', icon: Users, color: 'bg-emerald-500' },
-  { key: 'gallery', label: 'Gallery', icon: Image, color: 'bg-purple-500' },
-  { key: 'awards', label: 'Awards', icon: Trophy, color: 'bg-amber-500' },
-  { key: 'content', label: 'Content', icon: Settings, color: 'bg-orange-500' },
-  { key: 'security', label: 'Security', icon: Shield, color: 'bg-red-600' },
+  { key: 'analytics', label: 'Analytics', icon: BarChart3, color: 'text-blue-500' },
+  { key: 'projects', label: 'Projects', icon: FolderOpen, color: 'text-gray-400' },
+  { key: 'leadership', label: 'Team', icon: Users, color: 'text-gray-400' },
+  { key: 'gallery', label: 'Gallery', icon: Image, color: 'text-gray-400' },
+  { key: 'awards', label: 'Awards', icon: Trophy, color: 'text-gray-400' },
+  { key: 'content', label: 'Content', icon: Settings, color: 'text-gray-400' },
+  { key: 'security', label: 'Security', icon: Shield, color: 'text-gray-400' },
 ];
 
 const CONTENT_SECTIONS = ['hero', 'about', 'contact', 'footer'] as const;
@@ -85,7 +89,7 @@ const AdminDashboard = () => {
   } = useData();
 
 
-  const [activeTab, setActiveTab] = useState<TabType>('projects');
+  const [activeTab, setActiveTab] = useState<TabType>('analytics');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -509,9 +513,10 @@ const AdminDashboard = () => {
           <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-3">
             <div>
               <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-                {activeTab === 'content' ? 'Site Content' : activeTab === 'security' ? 'Security Center' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management`}
+                {activeTab === 'analytics' ? 'Website Insights' : activeTab === 'content' ? 'Site Content' : activeTab === 'security' ? 'Security Center' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management`}
               </h2>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {activeTab === 'analytics' && 'Website traffic and visitor insights'}
                 {activeTab === 'projects' && 'Manage club projects and events'}
                 {activeTab === 'leadership' && 'Update team members and roles'}
                 {activeTab === 'gallery' && 'Upload and organize gallery images'}
@@ -534,7 +539,11 @@ const AdminDashboard = () => {
 
           {/* Tab Content */}
           <div className="p-6">
+            {/* ──── ANALYTICS TAB ──── */}
+            {activeTab === 'analytics' && <AnalyticsWidget />}
+
             {/* ──── PROJECTS TAB ──── */}
+
             {activeTab === 'projects' && (
               projects.length === 0 ? (
                 <EmptyState icon={FolderOpen} text="No projects yet" sub="Add your first project to get started" />
