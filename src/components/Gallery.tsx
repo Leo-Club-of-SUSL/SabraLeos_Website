@@ -62,12 +62,20 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
         </div>
 
         {showButton && homeGallery.length > (limit || 0) && (
-          <div className="flex justify-center mt-12">
-            <Link
-              to="/gallery"
-              className="px-8 py-3 bg-[var(--color-leo-maroon)] text-white rounded-full font-semibold hover:bg-red-900 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-            >
-              Show More
+          <div className="flex justify-center mt-16">
+            <Link to="/gallery" className="group relative">
+               {/* Background Layer with animated border */}
+               <div className="absolute -inset-1 bg-gradient-to-r from-[var(--color-leo-maroon)] to-[var(--color-leo-gold)] rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+               
+               <div className="relative flex items-center gap-3 px-10 py-4 bg-white dark:bg-slate-900 ring-1 ring-gray-200 dark:ring-slate-800 rounded-full leading-none transition-all duration-300 group-hover:scale-105">
+                 <span className="text-gray-800 dark:text-gray-100 font-bold group-hover:text-[var(--color-leo-maroon)] dark:group-hover:text-[var(--color-leo-gold)] transition-colors">EXPLORE ALL MOMENTS</span>
+                 <motion.div
+                   animate={{ x: [0, 5, 0] }}
+                   transition={{ repeat: Infinity, duration: 1.5 }}
+                 >
+                   <ArrowRight size={20} className="text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]" />
+                 </motion.div>
+               </div>
             </Link>
           </div>
         )}
@@ -76,10 +84,9 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
           <div className="flex justify-center mt-12">
             <button
               onClick={() => setVisibleCount(c => c + GALLERY_PAGE_SIZE)}
-              aria-label="Load more gallery images"
-              className="px-8 py-3 bg-[var(--color-leo-maroon)] text-white rounded-full font-semibold hover:bg-red-900 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              className="px-8 py-3 bg-[var(--color-leo-maroon)] text-white rounded-xl font-bold hover:bg-red-800 transition-all shadow-lg hover:shadow-red-900/20 active:scale-95 flex items-center gap-2"
             >
-              Load More
+              Load More Masterpieces
             </button>
           </div>
         )}
@@ -88,4 +95,12 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
   );
 };
 
+const ArrowRight = ({ size, className }: { size: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+    <polyline points="12 5 19 12 12 19"></polyline>
+  </svg>
+);
+
 export default Gallery;
+

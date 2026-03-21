@@ -66,11 +66,13 @@ const Navbar = () => {
             <button
               key={link.name}
               onClick={() => handleNavClick(link.href)}
-              className={`cursor-pointer font-medium transition-colors bg-transparent border-none ${scrolled ? 'text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)]' : 'text-white/90 hover:text-[var(--color-leo-gold)]'}`}
+              className={`group relative cursor-pointer font-medium transition-colors bg-transparent border-none ${scrolled ? 'text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-maroon)]' : 'text-white/90 hover:text-white'}`}
             >
               {link.name}
+              <span className={`absolute -bottom-1 left-0 w-0 h-0.5 bg-[var(--color-leo-gold)] transition-all duration-300 group-hover:w-full`}></span>
             </button>
           ))}
+
 
           <div className={`w-px h-6 mx-4 ${scrolled ? 'bg-gray-300 dark:bg-gray-700' : 'bg-white/30'}`}></div>
 

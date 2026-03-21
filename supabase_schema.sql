@@ -234,6 +234,8 @@ VALUES ('hero_title', 'Leo Club of', 'hero'),
   ),
   ('contact_facebook', '#', 'contact'),
   ('contact_instagram', '#', 'contact'),
+  ('contact_whatsapp', '#', 'contact'),
+  ('contact_linkedin', '#', 'contact'),
   (
     'footer_club_name',
     'Leo Club of [City Name]',

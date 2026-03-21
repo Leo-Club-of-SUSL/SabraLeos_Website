@@ -22,30 +22,49 @@ const Hero = () => {
       </div>
 
       <div className="container mx-auto px-6 relative z-10 text-center text-white">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-        >
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight flex flex-col gap-2">
-            <span>{siteContent.hero_title}</span>
-            <span className="text-2xl md:text-4xl font-medium text-gray-200">{siteContent.hero_subtitle}</span>
-          </h1>
-          <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto text-gray-100 font-light">
-            {siteContent.hero_tagline}
-          </p>
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="mb-8"
+          >
+             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-4 tracking-tighter flex flex-col items-center">
+              <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">{siteContent.hero_title}</span>
+              <span className="text-2xl md:text-4xl lg:text-5xl font-medium text-[var(--color-leo-gold)] drop-shadow-lg -mt-2">
+                {siteContent.hero_subtitle}
+              </span>
+            </h1>
+          </motion.div>
 
-          <Link to="contact" smooth={true} duration={500}>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] px-8 py-4 rounded-full font-bold text-lg flex items-center mx-auto gap-2 hover:bg-white transition-colors shadow-lg cursor-pointer"
-            >
-              {siteContent.hero_cta}
-              <ArrowRight size={20} />
-            </motion.button>
-          </Link>
-        </motion.div>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="text-lg md:text-xl lg:text-2xl mb-12 text-white/90 font-light tracking-wide px-4"
+          >
+            {siteContent.hero_tagline}
+          </motion.p>
+ 
+           <motion.div
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             transition={{ duration: 0.8, delay: 0.8 }}
+           >
+             <Link to="contact" smooth={true} duration={500}>
+               <motion.button
+                 whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
+                 whileTap={{ scale: 0.95 }}
+                 className="group relative bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] px-10 py-5 rounded-full font-black text-xl flex items-center mx-auto gap-3 overflow-hidden transition-all shadow-2xl cursor-pointer"
+               >
+                 <span className="relative z-10">{siteContent.hero_cta}</span>
+                 <ArrowRight size={24} className="relative z-10 group-hover:translate-x-1 transition-transform" />
+                 <div className="absolute inset-0 bg-white translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+               </motion.button>
+             </Link>
+           </motion.div>
+        </div>
+
       </div>
     </section>
   );
