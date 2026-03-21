@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect, lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import ReactGA from 'react-ga4';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider } from './context/DataContext';
 import { AuthProvider } from './context/AuthContext';
@@ -12,6 +13,20 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const GalleryPage = lazy(() => import('./pages/GalleryPage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
+// Page View Tracker Component
+const PageViewTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Exclude admin routes from tracking
+    if (!location.pathname.startsWith('/admin')) {
+      ReactGA.send({ hitType: 'pageview', page: location.pathname });
+    }
+  }, [location.pathname]);
+
+  return null;
+};
+
 function App() {
   return (
     <ThemeProvider>
@@ -19,8 +34,10 @@ function App() {
         <AuthProvider>
           <ToastProvider>
             <Router>
-            <main id="app-content">
-              <Suspense fallback={
+              <PageViewTracker />
+              <main id="app-content">
+                <Suspense fallback={
+
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
                   <div className="w-12 h-12 border-4 border-[var(--color-leo-maroon)] border-t-transparent rounded-full animate-spin"></div>
                 </div>

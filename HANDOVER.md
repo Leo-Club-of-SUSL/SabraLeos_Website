@@ -34,7 +34,8 @@ To manage the full lifecycle of the site, the ICT/Web committee needs access to:
 4. **Cloudinary**: Media library for large-scale image assets.
 5. **GoDaddy**: Domain registration (`sabraleos.org`).
 6. **UptimeRobot**: Monitors site status 24/7.
-7. **Google Search Console**: Monitors search visibility and index status.
+7. **Google Analytics**: Integrated (GA4) with Measurement ID `G-57YGDY6C62`.
+8. **Google Search Console**: Monitors search visibility and index status.
 
 > [!IMPORTANT]
 > **Credential Security**: All accounts must be tied to the official club email. Never share passwords in plain text. Use a shared Password Manager (like Bitwarden) for the committee.
