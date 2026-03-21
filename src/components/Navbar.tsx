@@ -48,21 +48,38 @@ const Navbar = () => {
   return (
     <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-md py-4' : 'bg-transparent py-6'}`}>
       <div className="container mx-auto px-6 flex justify-between items-center" role="navigation">
-        <button 
-          onClick={() => navigate('/')} 
-          className="flex items-center gap-3 cursor-pointer bg-transparent border-none p-0 focus-visible:ring-2 focus-visible:ring-leo-gold rounded-lg"
-          aria-label="Back to Homepage"
+        <div 
+          onClick={() => {
+            if (isHomePage) {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              navigate('/');
+              window.scrollTo(0, 0);
+            }
+          }} 
+          className="flex items-center gap-3 cursor-pointer bg-transparent border-none p-0 focus-visible:ring-2 focus-visible:ring-leo-gold rounded-lg no-underline group"
+          role="button"
+          tabIndex={0}
+          aria-label="Leo Club of SUSL Home"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              if (isHomePage) window.scrollTo({ top: 0, behavior: 'smooth' });
+              else navigate('/');
+            }
+          }}
         >
           <img
             src="/Images/Round_logo.png"
             alt="Leo Club Round Logo"
-            className="w-12 h-12 lg:w-14 lg:h-14 object-contain drop-shadow-md"
+            className="w-12 h-12 lg:w-14 lg:h-14 object-contain drop-shadow-md transition-transform group-hover:scale-105"
           />
           <div className={`font-bold tracking-tighter flex flex-col items-start leading-tight ${scrolled ? 'text-[var(--color-leo-maroon)] dark:text-white' : 'text-white'}`}>
             <span className="text-xl lg:text-2xl">LEO CLUB</span>
             <span className="text-xs lg:text-sm font-medium opacity-90">Sabaragamuwa University of Sri Lanka</span>
           </div>
-        </button>
+        </div>
+
+
 
         {/* Desktop Menu */}
         <ul className="hidden lg:flex items-center space-x-8 list-none m-0 p-0">

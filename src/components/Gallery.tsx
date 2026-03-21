@@ -61,7 +61,7 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
           ))}
         </div>
 
-        {showButton && homeGallery.length > (limit || 0) && (
+        {showButton && homeGallery.length > 0 && (
           <div className="flex justify-center mt-16">
             <Link to="/gallery" className="group relative" aria-label="Explore all gallery moments">
                {/* Background Layer with animated border */}
