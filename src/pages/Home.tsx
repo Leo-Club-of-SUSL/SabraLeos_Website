@@ -9,23 +9,54 @@ import Gallery from '../components/Gallery';
 import Contact from '../components/Contact';
 import Footer from '../components/Footer';
 
-const BASE_URL = import.meta.env.VITE_BASE_URL || window.location.origin;
-
 const Home = () => {
+  const SITE_URL = "https://sabraleos.org";
+
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Leo Club of Sabragamuwa University of Sri Lanka",
+    "alternateName": "Leo Club of SUSL",
+    "url": SITE_URL,
+    "logo": `${SITE_URL}/Images/Round_logo.png`,
+    "sameAs": [], // Add social media URLs here if available
+    "description": "The official Leo Club of Sabragamuwa University of Sri Lanka – serving the community through leadership, experience, and opportunity.",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Belihuloya",
+      "addressRegion": "Sabaragamuwa",
+      "addressCountry": "Sri Lanka"
+    }
+  };
+
   return (
     <>
       <Helmet>
-        <title>SabraLeos – Leo Club of Sabaragamuwa University of Sri Lanka</title>
-        <meta name="description" content="Leo Club of Sabaragamuwa University of Sri Lanka – serving the community through leadership, experience, and opportunity." />
-        <meta property="og:title" content="SabraLeos – Leo Club of SUSL" />
-        <meta property="og:description" content="Leo Club of Sabaragamuwa University of Sri Lanka – serving the community through leadership, experience, and opportunity." />
-        <meta property="og:image" content={`${BASE_URL}/Images/Round_logo.png`} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:url" content={BASE_URL} />
+        <title>Leo Club of SUSL | SabraLeos of Sabragamuwa University</title>
+        <meta name="description" content="Official website of the Leo Club of Sabragamuwa University of Sri Lanka (SUSL). Join us in leadership, experience, and opportunity for a better community." />
+        <meta name="keywords" content="Leo Club, SUSL, Sabragamuwa University, Sri Lanka, Leo Club of Sabragamuwa, SabraLeos, Community Service, Leadership, Youth Organization" />
+        
+        {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
+        <meta property="og:url" content={SITE_URL} />
+        <meta property="og:title" content="Leo Club of SUSL | SabraLeos of Sabragamuwa University" />
+        <meta property="og:description" content="Official website of the Leo Club of Sabragamuwa University of Sri Lanka (SUSL). Join us in leadership, experience, and opportunity." />
+        <meta property="og:image" content={`${SITE_URL}/Images/Round_logo.png`} />
+
+        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content={SITE_URL} />
+        <meta name="twitter:title" content="Leo Club of SUSL | SabraLeos of Sabragamuwa University" />
+        <meta name="twitter:description" content="Official website of the Leo Club of Sabragamuwa University of Sri Lanka (SUSL). Join us in leadership, experience, and opportunity." />
+        <meta name="twitter:image" content={`${SITE_URL}/Images/Round_logo.png`} />
+
+        {/* Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd)}
+        </script>
       </Helmet>
+
       <Navbar />
       <main id="main-content">
         <Hero />
