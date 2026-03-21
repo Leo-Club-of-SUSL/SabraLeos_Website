@@ -442,24 +442,32 @@ const AdminDashboard = () => {
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={handleBackToHome} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-gray-500 dark:text-gray-400">
+            <button 
+              onClick={handleBackToHome} 
+              className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-gray-500 dark:text-gray-400 focus-visible:ring-2 focus-visible:ring-leo-maroon"
+              aria-label="Exit dashboard and return to home"
+            >
               <ArrowLeft size={20} />
             </button>
 
             <div>
               <h1 className="text-lg font-bold text-gray-800 dark:text-white leading-tight">Admin Dashboard</h1>
-              <p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">{user?.email}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block leading-none mt-1">{user?.email}</p>
             </div>
           </div>
-          <button onClick={handleSignOut} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-            <LogOut size={16} /> Sign Out
+          <button 
+            onClick={handleSignOut} 
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500"
+            aria-label="Log out of admin account"
+          >
+            <LogOut size={16} /> <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6" id="admin-main">
         {/* Tab Bar */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Dashboard sections">
           {TAB_CONFIG.map(tab => {
             const Icon = tab.icon;
             const count = getTabCount(tab.key);
@@ -467,13 +475,17 @@ const AdminDashboard = () => {
             return (
               <button
                 key={tab.key}
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`${tab.key}-panel`}
+                id={`tab-${tab.key}`}
                 onClick={() => handleTabChange(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 ${isActive
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--color-leo-maroon)] ${isActive
                   ? 'bg-[var(--color-leo-maroon)] text-white shadow-lg shadow-red-900/20'
                   : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-100 dark:border-slate-700'
                   }`}
               >
-                <Icon size={16} />
+                <Icon size={16} aria-hidden="true" />
                 {tab.label}
                 {count !== null && (
                   <span className={`px-1.5 py-0.5 rounded-md text-xs font-bold ${isActive ? 'bg-white/20' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
@@ -485,8 +497,14 @@ const AdminDashboard = () => {
           })}
         </div>
 
+
         {/* Main Content Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+        <div 
+          className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden"
+          role="tabpanel"
+          id={`${activeTab}-panel`}
+          aria-labelledby={`tab-${activeTab}`}
+        >
           {/* Section Header */}
           <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-3">
             <div>
@@ -503,10 +521,15 @@ const AdminDashboard = () => {
               </p>
             </div>
             {['projects', 'leadership', 'gallery', 'awards'].includes(activeTab) && (
-              <button onClick={handleAddClick} className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg">
+              <button 
+                onClick={handleAddClick} 
+                className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg focus-visible:ring-2 focus-visible:ring-leo-maroon"
+                aria-label={`Add new ${activeTab.slice(0, -1)}`}
+              >
                 <Plus size={16} /> Add New
               </button>
             )}
+
           </div>
 
           {/* Tab Content */}
@@ -829,7 +852,7 @@ const AdminDashboard = () => {
             )}
           </div>
         </div>
-      </div>
+
 
       {/* ──── MODAL ──── */}
       {isModalOpen && (
@@ -966,9 +989,12 @@ const AdminDashboard = () => {
         onConfirm={confirmDialog.onConfirm}
         onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
+      </main>
     </div>
   );
 };
+
+
 
 // ================================================================
 // Helpers

@@ -4,8 +4,9 @@
 @theme {
   --color-leo-gold: #FDBE15;
   --color-leo-maroon: #800000;
-  --color-leo-maroon-dark: #A01010;
+  --color-leo-maroon-dark: #600000;
 }
+
 
 @variant dark (&:is(.dark *));
 
@@ -25,7 +26,7 @@
   --bg-secondary: #1e293b;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
-  --color-leo-maroon: #A01010;
+  --color-leo-maroon: #800000; /* Use #800000 for better contrast (5.8:1) with gold #FDBE15 */
 }
 
 body {
@@ -39,9 +40,20 @@ body {
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 100px;
-  /* Offset for fixed navbar */
+  scroll-padding-top: 100px; /* Offset for fixed navbar */
 }
+
+/* Accessible focus indicators */
+:focus-visible {
+  outline: 2px solid var(--color-leo-gold);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.dark :focus-visible {
+  outline: 2px solid var(--color-leo-gold);
+}
+
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {

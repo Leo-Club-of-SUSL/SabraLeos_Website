@@ -29,7 +29,7 @@ const Hero = () => {
             transition={{ duration: 1.2, ease: "easeOut" }}
             className="mb-8"
           >
-             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-4 tracking-tighter flex flex-col items-center">
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-4 tracking-tighter flex flex-col items-center">
               <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">{siteContent.hero_title}</span>
               <span className="text-2xl md:text-4xl lg:text-5xl font-medium text-[var(--color-leo-gold)] drop-shadow-lg -mt-2">
                 {siteContent.hero_subtitle}
@@ -56,6 +56,7 @@ const Hero = () => {
                  whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
                  whileTap={{ scale: 0.95 }}
                  className="group relative bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] px-10 py-5 rounded-full font-black text-xl flex items-center mx-auto gap-3 overflow-hidden transition-all shadow-2xl cursor-pointer"
+                 aria-label={`Scroll to ${siteContent.hero_cta}`}
                >
                  <span className="relative z-10">{siteContent.hero_cta}</span>
                  <ArrowRight size={24} className="relative z-10 group-hover:translate-x-1 transition-transform" />
@@ -63,6 +64,7 @@ const Hero = () => {
                </motion.button>
              </Link>
            </motion.div>
+
         </div>
 
       </div>

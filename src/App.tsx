@@ -19,6 +19,7 @@ function App() {
         <AuthProvider>
           <ToastProvider>
             <Router>
+            <main id="app-content">
               <Suspense fallback={
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
                   <div className="w-12 h-12 border-4 border-[var(--color-leo-maroon)] border-t-transparent rounded-full animate-spin"></div>
@@ -39,6 +40,8 @@ function App() {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
+            </main>
+
             </Router>
           </ToastProvider>
         </AuthProvider>
