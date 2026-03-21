@@ -6,7 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 
-const Home = lazy(() => import('./pages/Home'));
+import Home from './pages/Home';
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const GalleryPage = lazy(() => import('./pages/GalleryPage'));
@@ -19,6 +19,7 @@ function App() {
         <AuthProvider>
           <ToastProvider>
             <Router>
+            <main id="app-content">
               <Suspense fallback={
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
                   <div className="w-12 h-12 border-4 border-[var(--color-leo-maroon)] border-t-transparent rounded-full animate-spin"></div>
@@ -39,6 +40,8 @@ function App() {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
+            </main>
+
             </Router>
           </ToastProvider>
         </AuthProvider>

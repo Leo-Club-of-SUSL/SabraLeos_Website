@@ -301,16 +301,32 @@ export const siteContentAPI = {
         }
     },
 
-    /**
+     /**
      * Bulk update multiple site content entries
      */
-    async bulkUpdate(entries: { key: string; value: string }[]): Promise<void> {
-        const promises = entries.map(({ key, value }) =>
-            supabase
+    async bulkUpdate(entries: { key: string; value: string }[], section?: string): Promise<void> {
+        const promises = entries.map(({ key, value }) => {
+            const data: any = { 
+                key, 
+                value, 
+                updated_at: new Date().toISOString() 
+            };
+            
+            // For upsert to work on new rows, we need the section
+            if (section) data.section = section;
+            else {
+                // Infer section from key prefix
+                if (key.startsWith('hero_')) data.section = 'hero';
+                else if (key.startsWith('about_')) data.section = 'about';
+                else if (key.startsWith('contact_')) data.section = 'contact';
+                else if (key.startsWith('footer_')) data.section = 'footer';
+                else data.section = 'general';
+            }
+
+            return supabase
                 .from('site_content')
-                .update({ value, updated_at: new Date().toISOString() })
-                .eq('key', key)
-        );
+                .upsert(data, { onConflict: 'key' });
+        });
 
         const results = await Promise.all(promises);
         const errors = results.filter(r => r.error);
@@ -402,7 +418,27 @@ export const galleryAPI = {
             throw error;
         }
     },
+
+    /**
+     * Bulk update multiple gallery images (useful for reordering)
+     */
+    async bulkUpdate(updates: { id: number; show_on_home?: boolean; sort_order?: number }[]): Promise<void> {
+        const promises = updates.map(update => 
+            supabase
+                .from('gallery')
+                .update(update)
+                .eq('id', update.id)
+        );
+
+        const results = await Promise.all(promises);
+        const errors = results.filter(r => r.error);
+        if (errors.length > 0) {
+            console.error('Error bulk updating gallery:', errors);
+            throw errors[0].error;
+        }
+    }
 };
+
 
 // ============================================
 // Awards API

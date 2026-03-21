@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, Loader2,
-  Settings, Eye, EyeOff, Shield, LogOut, AlertTriangle, CheckCircle, XCircle,
-  Lock, RefreshCw, Mail, Clock, ImagePlus, Trophy
-} from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, Loader2, Settings, Shield, LogOut, AlertTriangle, CheckCircle, XCircle, Lock, RefreshCw, Mail, Clock, ImagePlus, Trophy } from 'lucide-react';
+
+
+
+
+
+
+import { Reorder } from 'framer-motion';
+
+
+
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { securityService } from '../lib/securityService';
+import { imageService } from '../lib/imageService';
 import type { SecurityLog } from '../lib/securityService';
 import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
 
@@ -29,13 +36,15 @@ const TAB_CONFIG: { key: TabType; label: string; icon: any; color: string }[] = 
 
 const CONTENT_SECTIONS = ['hero', 'about', 'contact', 'footer'] as const;
 
-const SECTION_FIELDS: Record<string, { key: string; label: string; type: 'text' | 'textarea' | 'url' }[]> = {
+const SECTION_FIELDS: Record<string, { key: string; label: string; type: 'text' | 'textarea' | 'url' | 'image' }[]> = {
   hero: [
     { key: 'hero_title', label: 'Title', type: 'text' },
     { key: 'hero_subtitle', label: 'Subtitle', type: 'text' },
     { key: 'hero_cta', label: 'CTA Button Text', type: 'text' },
     { key: 'hero_tagline', label: 'Tagline', type: 'text' },
-    { key: 'hero_bg_image', label: 'Background Image URL', type: 'url' },
+    { key: 'site_logo', label: 'Club Logo', type: 'image' },
+    { key: 'site_banner', label: 'Homepage Banner', type: 'image' },
+    { key: 'hero_bg_image', label: 'Hero Background Image', type: 'image' },
   ],
   about: [
     { key: 'about_mission', label: 'Mission Statement', type: 'textarea' },
@@ -58,6 +67,7 @@ const SECTION_FIELDS: Record<string, { key: string; label: string; type: 'text' 
   ],
 };
 
+
 // ================================================================
 // Component
 // ================================================================
@@ -71,24 +81,33 @@ const AdminDashboard = () => {
     addMember, updateMember, deleteMember,
     addImage, updateImage, deleteImage,
     addAward, updateAward, deleteAward,
-    bulkUpdateSiteContent
+    bulkUpdateSiteContent, bulkUpdateGallery
   } = useData();
+
 
   const [activeTab, setActiveTab] = useState<TabType>('projects');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isBulkUpload, setIsBulkUpload] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
 
   // Form States
   const [projectForm, setProjectForm] = useState<Partial<Project>>({ category: 'Upcoming', status: 'Active' });
   const [memberForm, setMemberForm] = useState<Partial<LeadershipMember>>({ type: 'executive' });
-  const [imageForm, setImageForm] = useState<Partial<GalleryImage>>({ showOnHome: true, sortOrder: 0 });
+  const [imageForm, setImageForm] = useState<Partial<GalleryImage>>({ showOnHome: false, sortOrder: 0 });
   const [awardForm, setAwardForm] = useState<Partial<Award>>({});
+
 
   // Content state
   const [contentForm, setContentForm] = useState<Record<string, string>>({});
+  const [contentFiles, setContentFiles] = useState<Record<string, File | null>>({});
   const [contentSaving, setContentSaving] = useState(false);
   const [contentSection, setContentSection] = useState<typeof CONTENT_SECTIONS[number]>('hero');
+
 
   // Security state
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>([]);
@@ -105,14 +124,27 @@ const AdminDashboard = () => {
   const resetForms = () => {
     setProjectForm({ category: 'Upcoming', status: 'Active' });
     setMemberForm({ type: 'executive' });
-    setImageForm({ showOnHome: true, sortOrder: 0 });
+    setImageForm({ showOnHome: false, sortOrder: 0 });
     setAwardForm({});
+    setContentFiles({});
   };
 
-  const handleAddClick = () => { setEditingItem(null); resetForms(); setIsModalOpen(true); };
+
+  const handleAddClick = () => { 
+    setEditingItem(null); 
+    resetForms(); 
+    setSelectedFile(null);
+    setSelectedFiles([]);
+    setIsBulkUpload(false);
+    setIsModalOpen(true); 
+  };
+
 
   const handleEditClick = (item: any) => {
     setEditingItem(item);
+    setSelectedFile(null);
+    setSelectedFiles([]);
+    setIsBulkUpload(false);
     if (activeTab === 'projects') setProjectForm(item);
     if (activeTab === 'leadership') setMemberForm(item);
     if (activeTab === 'gallery') setImageForm(item);
@@ -120,51 +152,179 @@ const AdminDashboard = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteClick = (id: number, type?: 'executive' | 'board') => {
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      if (isBulkUpload && activeTab === 'gallery') {
+        setSelectedFiles(Array.from(e.target.files));
+      } else {
+        setSelectedFile(e.target.files[0]);
+      }
+    }
+  };
+
+
+  const handleDeleteClick = (item: any, type?: 'executive' | 'board') => {
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Item',
       message: 'This action cannot be undone. Are you sure you want to permanently delete this item?',
       onConfirm: async () => {
         try {
-          if (activeTab === 'projects') await deleteProject(id);
-          if (activeTab === 'leadership' && type) await deleteMember(id, type);
-          if (activeTab === 'gallery') await deleteImage(id);
-          if (activeTab === 'awards') await deleteAward(id);
+          // 1. Delete from storage first
+          const imageUrl = item.image || item.image_url || item.src;
+          const bucket = activeTab === 'projects' ? 'projects' : 
+                         activeTab === 'leadership' ? 'leadership' :
+                         activeTab === 'content' ? 'site-content' : undefined;
+          
+          if (imageUrl) {
+            await imageService.deleteFromStorage(imageUrl, bucket);
+          }
+
+          // 2. Delete from DB
+          if (activeTab === 'projects') await deleteProject(item.id);
+          if (activeTab === 'leadership' && type) await deleteMember(item.id, type);
+          if (activeTab === 'gallery') await deleteImage(item.id);
+          if (activeTab === 'awards') await deleteAward(item.id);
           showToast('Item deleted successfully', 'success');
-        } catch { showToast('Failed to delete item', 'error'); }
+        } catch (err) { 
+          console.error(err);
+          showToast('Failed to delete item', 'error'); 
+        }
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
     });
   };
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    
+    let currentImageUrl = '';
+    if (activeTab === 'projects') currentImageUrl = projectForm.image || '';
+    if (activeTab === 'leadership') currentImageUrl = memberForm.image || '';
+    if (activeTab === 'gallery') currentImageUrl = imageForm.src || '';
+    if (activeTab === 'awards') currentImageUrl = awardForm.image || '';
+
+    const oldImageUrl = currentImageUrl;
+
     try {
+      // Handle Image Upload if files are selected
+      if ((selectedFile || selectedFiles.length > 0)) {
+        setUploadingImage(true);
+        try {
+          if (activeTab === 'gallery' && isBulkUpload && selectedFiles.length > 0) {
+            // Bulk Upload for Gallery
+            const uploadPromises = selectedFiles.map(async (file, index) => {
+              const customName = `${imageForm.alt || 'gallery'}-${index + 1}`;
+              const url = await imageService.uploadToCloudinary(file, customName);
+              // Force showOnHome false for all new uploads (to Library)
+              const finalForm = { ...imageForm, src: url, showOnHome: false };
+              return addImage(finalForm as Omit<GalleryImage, 'id'>);
+            });
+            await Promise.all(uploadPromises);
+            
+            showToast(`Bulk uploaded ${selectedFiles.length} images to Library!`, 'success');
+            setIsModalOpen(false);
+            resetForms();
+            setSelectedFiles([]);
+            setSubmitting(false);
+            setUploadingImage(false);
+            return;
+          }
+
+          // Single Upload Logic
+          let uploadedUrl = '';
+          const fileToUpload = selectedFile!;
+          
+          if (activeTab === 'gallery' || activeTab === 'awards') {
+            // Cloudinary
+            const customName = activeTab === 'gallery' ? imageForm.alt : awardForm.title;
+            uploadedUrl = await imageService.uploadToCloudinary(fileToUpload, customName);
+          } else {
+            // Supabase
+            const bucket = activeTab === 'projects' ? 'projects' : 
+                           activeTab === 'leadership' ? 'leadership' : 'site-content';
+            const customName = activeTab === 'projects' ? projectForm.title : 
+                               activeTab === 'leadership' ? memberForm.name : undefined;
+            uploadedUrl = await imageService.uploadToSupabase(fileToUpload, bucket, customName);
+          }
+
+          // If updating and we have a new image, delete the old one from storage
+          if (editingItem && oldImageUrl) {
+            const bucket = activeTab === 'projects' ? 'projects' : 
+                           activeTab === 'leadership' ? 'leadership' : undefined;
+            await imageService.deleteFromStorage(oldImageUrl, bucket);
+          }
+
+          currentImageUrl = uploadedUrl;
+        } catch (err) {
+          console.error(err);
+          showToast('Image upload failed. Please try again.', 'error');
+          setSubmitting(false);
+          setUploadingImage(false);
+          return;
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+
       if (activeTab === 'projects') {
-        editingItem ? await updateProject(projectForm as Project) : await addProject(projectForm as Omit<Project, 'id'>);
+        const finalForm = { ...projectForm, image: currentImageUrl };
+        editingItem ? await updateProject(finalForm as Project) : await addProject(finalForm as Omit<Project, 'id'>);
       } else if (activeTab === 'leadership') {
+        const finalForm = { ...memberForm, image: currentImageUrl };
         const t = memberForm.type as 'executive' | 'board';
-        editingItem ? await updateMember(memberForm as LeadershipMember, t) : await addMember(memberForm as Omit<LeadershipMember, 'id'>, t);
+        editingItem ? await updateMember(finalForm as LeadershipMember, t) : await addMember(finalForm as Omit<LeadershipMember, 'id'>, t);
       } else if (activeTab === 'gallery') {
-        editingItem ? await updateImage(editingItem.id, imageForm as Partial<GalleryImage>) : await addImage(imageForm as Omit<GalleryImage, 'id'>);
-      } else if (activeTab === 'awards') {
-        editingItem ? await updateAward(editingItem.id, awardForm as Partial<Award>) : await addAward(awardForm as Omit<Award, 'id'>);
+        // Force new images to Library
+        const finalForm = { ...imageForm, src: currentImageUrl, showOnHome: editingItem ? imageForm.showOnHome : false };
+        editingItem ? await updateImage(editingItem.id, finalForm as Partial<GalleryImage>) : await addImage(finalForm as Omit<GalleryImage, 'id'>);
+      }
+ else if (activeTab === 'awards') {
+        const finalForm = { ...awardForm, image: currentImageUrl };
+        editingItem ? await updateAward(editingItem.id, finalForm as Partial<Award>) : await addAward(finalForm as Omit<Award, 'id'>);
       }
       setIsModalOpen(false);
       resetForms();
+      setSelectedFile(null);
       showToast(editingItem ? 'Updated successfully!' : 'Created successfully!', 'success');
-    } catch { showToast('Failed to save. Please try again.', 'error'); }
+    } catch (err) { 
+      console.error(err);
+      showToast('Failed to save. Please try again.', 'error'); 
+    }
     finally { setSubmitting(false); }
+  };
+
+
+  const handleBackToHome = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const handleGalleryReorder = async (newOrder: GalleryImage[]) => {
+    try {
+      const updates = newOrder.map((img, idx) => ({
+        id: img.id,
+        sortOrder: idx
+      }));
+      await bulkUpdateGallery(updates);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save order', 'error');
+    }
   };
 
   const handleToggleShowOnHome = async (img: GalleryImage) => {
     try {
-      await updateImage(img.id, { showOnHome: !img.showOnHome });
-      showToast(img.showOnHome ? 'Hidden from home page' : 'Now visible on home page', 'info');
+      const newState = !img.showOnHome;
+      await updateImage(img.id, { showOnHome: newState });
+      showToast(newState ? 'Promoted to Home Page Feed' : 'Moved to Photo Library', 'info');
     } catch { showToast('Failed to update image', 'error'); }
   };
+
+
 
   // Content handlers
   const initContentForm = (section: string) => {
@@ -182,11 +342,32 @@ const AdminDashboard = () => {
   const handleContentSave = async () => {
     setContentSaving(true);
     try {
-      await bulkUpdateSiteContent(Object.entries(contentForm).map(([key, value]) => ({ key, value })));
+      const entries = { ...contentForm };
+      
+      // Handle image uploads for content
+      for (const [key, file] of Object.entries(contentFiles)) {
+        if (file) {
+          // Delete old image if exists
+          const oldUrl = siteContent[key];
+          if (oldUrl) {
+            await imageService.deleteFromStorage(oldUrl, 'site-content');
+          }
+          
+          const uploadedUrl = await imageService.uploadToSupabase(file, 'site-content');
+          entries[key] = uploadedUrl;
+        }
+      }
+
+      await bulkUpdateSiteContent(Object.entries(entries).map(([key, value]) => ({ key, value })), contentSection);
+      setContentFiles({}); // Clear pending uploads
       showToast(`${contentSection.charAt(0).toUpperCase() + contentSection.slice(1)} content saved!`, 'success');
-    } catch { showToast('Failed to save content', 'error'); }
+    } catch (err) { 
+      console.error(err);
+      showToast('Failed to save content', 'error'); 
+    }
     finally { setContentSaving(false); }
   };
+
 
   // Security handlers
   const fetchSecurityLogs = async () => {
@@ -225,17 +406,20 @@ const AdminDashboard = () => {
   };
 
   const getEventBadge = (type: string) => {
-    const map: Record<string, { icon: any; label: string; cls: string }> = {
+    const map: Record<string, { icon: React.ElementType; label: string; cls: string }> = {
       login_success: { icon: CheckCircle, label: 'Success', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
       login_failed: { icon: XCircle, label: 'Failed', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
       brute_force_detected: { icon: AlertTriangle, label: 'Brute Force', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
       account_locked: { icon: Lock, label: 'Locked', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
       logout: { icon: LogOut, label: 'Logout', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
     };
-    const m = map[type] || { icon: Shield, label: type, cls: 'bg-gray-100 text-gray-600' };
-    const Icon = m.icon;
-    return <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${m.cls}`}><Icon size={12} /> {m.label}</span>;
+    const m = map[type];
+    if (!m) return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600"><Shield size={12} /> {type}</span>;
+    
+    const IconComponent = m.icon;
+    return <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${m.cls}`}><IconComponent size={12} /> {m.label}</span>;
   };
+
 
   // ---- Image Preview Helper ----
   const ImagePreview = ({ url }: { url?: string }) => {
@@ -258,23 +442,32 @@ const AdminDashboard = () => {
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-gray-500 dark:text-gray-400">
+            <button 
+              onClick={handleBackToHome} 
+              className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-colors text-gray-500 dark:text-gray-400 focus-visible:ring-2 focus-visible:ring-leo-maroon"
+              aria-label="Exit dashboard and return to home"
+            >
               <ArrowLeft size={20} />
             </button>
+
             <div>
               <h1 className="text-lg font-bold text-gray-800 dark:text-white leading-tight">Admin Dashboard</h1>
-              <p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">{user?.email}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block leading-none mt-1">{user?.email}</p>
             </div>
           </div>
-          <button onClick={handleSignOut} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-            <LogOut size={16} /> Sign Out
+          <button 
+            onClick={handleSignOut} 
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500"
+            aria-label="Log out of admin account"
+          >
+            <LogOut size={16} /> <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6" id="admin-main">
         {/* Tab Bar */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Dashboard sections">
           {TAB_CONFIG.map(tab => {
             const Icon = tab.icon;
             const count = getTabCount(tab.key);
@@ -282,13 +475,17 @@ const AdminDashboard = () => {
             return (
               <button
                 key={tab.key}
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`${tab.key}-panel`}
+                id={`tab-${tab.key}`}
                 onClick={() => handleTabChange(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 ${isActive
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--color-leo-maroon)] ${isActive
                   ? 'bg-[var(--color-leo-maroon)] text-white shadow-lg shadow-red-900/20'
                   : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-100 dark:border-slate-700'
                   }`}
               >
-                <Icon size={16} />
+                <Icon size={16} aria-hidden="true" />
                 {tab.label}
                 {count !== null && (
                   <span className={`px-1.5 py-0.5 rounded-md text-xs font-bold ${isActive ? 'bg-white/20' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}`}>
@@ -300,8 +497,14 @@ const AdminDashboard = () => {
           })}
         </div>
 
+
         {/* Main Content Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+        <div 
+          className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden"
+          role="tabpanel"
+          id={`${activeTab}-panel`}
+          aria-labelledby={`tab-${activeTab}`}
+        >
           {/* Section Header */}
           <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-3">
             <div>
@@ -318,10 +521,15 @@ const AdminDashboard = () => {
               </p>
             </div>
             {['projects', 'leadership', 'gallery', 'awards'].includes(activeTab) && (
-              <button onClick={handleAddClick} className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg">
+              <button 
+                onClick={handleAddClick} 
+                className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg focus-visible:ring-2 focus-visible:ring-leo-maroon"
+                aria-label={`Add new ${activeTab.slice(0, -1)}`}
+              >
                 <Plus size={16} /> Add New
               </button>
             )}
+
           </div>
 
           {/* Tab Content */}
@@ -347,7 +555,8 @@ const AdminDashboard = () => {
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => handleEditClick(project)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Edit size={16} /></button>
-                        <button onClick={() => handleDeleteClick(project.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={16} /></button>
+                         <button onClick={() => handleDeleteClick(project)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={16} /></button>
+
                       </div>
                     </div>
                   ))}
@@ -376,7 +585,8 @@ const AdminDashboard = () => {
                               </div>
                               <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => handleEditClick(member)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
-                                <button onClick={() => handleDeleteClick(member.id, groupType)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                                <button onClick={() => handleDeleteClick(member, groupType)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+
                               </div>
                             </div>
                           ))}
@@ -390,29 +600,119 @@ const AdminDashboard = () => {
 
             {/* ──── GALLERY TAB ──── */}
             {activeTab === 'gallery' && (
-              gallery.length === 0 ? (
-                <EmptyState icon={ImagePlus} text="Gallery is empty" sub="Add images to showcase your club's activities" />
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {gallery.map(img => (
-                    <div key={img.id} className="relative group rounded-xl overflow-hidden aspect-square bg-gray-100 dark:bg-slate-700">
-                      <img src={img.src} alt={img.alt} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-col items-center justify-end p-3 gap-2">
-                        <p className="text-white text-xs font-medium truncate w-full text-center">{img.alt}</p>
-                        <div className="flex gap-2">
-                          <button onClick={() => handleToggleShowOnHome(img)} className={`p-2 rounded-full text-white transition-colors ${img.showOnHome ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-gray-500 hover:bg-gray-600'}`}>
-                            {img.showOnHome ? <Eye size={14} /> : <EyeOff size={14} />}
-                          </button>
-                          <button onClick={() => handleEditClick(img)} className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600"><Edit size={14} /></button>
-                          <button onClick={() => handleDeleteClick(img.id)} className="p-2 rounded-full bg-red-500 text-white hover:bg-red-600"><Trash2 size={14} /></button>
-                        </div>
-                      </div>
-                      <div className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white ${img.showOnHome ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+              <div className="space-y-12">
+                {/* 1. HOME FEED SECTION (TOP) */}
+                <div className="relative p-6 rounded-3xl bg-emerald-50/50 dark:bg-emerald-900/5 border border-emerald-100 dark:border-emerald-900/20">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-black text-emerald-800 dark:text-emerald-400 flex items-center gap-2 tracking-tight">
+                        <CheckCircle size={22} className="text-emerald-500" /> Home Page Feed
+                      </h3>
+                      <p className="text-[11px] font-medium text-emerald-600/60 dark:text-emerald-400/40 uppercase tracking-widest mt-1">
+                        Limited selection — These appear on your main homepage
+                      </p>
                     </div>
-                  ))}
+                    <span className="px-3 py-1 bg-white dark:bg-slate-800 border-2 border-emerald-200 dark:border-emerald-800/40 rounded-full text-[10px] font-black text-emerald-700 dark:text-emerald-300 shadow-sm">
+                      {gallery.filter(i => i.showOnHome).length} VISIBLE
+                    </span>
+                  </div>
+
+                  {gallery.filter(i => i.showOnHome).length === 0 ? (
+                    <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
+                      <ImagePlus size={32} className="text-emerald-300 mb-2" />
+                      <p className="text-sm font-bold text-emerald-900 dark:text-emerald-500">Your Home Feed is empty</p>
+                      <p className="text-xs text-emerald-700/60">Upload new images or promote them from the library below</p>
+                    </div>
+                  ) : (
+                    <Reorder.Group 
+                      axis="x" 
+                      values={gallery.filter(i => i.showOnHome).sort((a,b) => a.sortOrder - b.sortOrder)} 
+                      onReorder={(newOrder) => handleGalleryReorder(newOrder as GalleryImage[])}
+                      className="flex flex-wrap gap-4"
+                    >
+                      {gallery.filter(i => i.showOnHome).sort((a, b) => a.sortOrder - b.sortOrder).map((item) => (
+                        <Reorder.Item 
+                          key={item.id} 
+                          value={item}
+                          className="relative group w-32 aspect-square rounded-2xl overflow-hidden cursor-grab active:cursor-grabbing border-4 border-white dark:border-slate-800 shadow-xl shadow-emerald-900/5"
+                        >
+                          <img src={item.src} alt="" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-emerald-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                             <button onClick={() => handleToggleShowOnHome(item)} title="Remove from Home" className="p-2 bg-white rounded-xl text-emerald-600 hover:scale-110 active:scale-95 transition-all shadow-lg"><Trash2 size={16} /></button>
+                             <p className="text-[8px] font-black text-white uppercase tracking-tighter">Remove</p>
+                          </div>
+                          <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-emerald-400 shadow-sm animate-pulse" />
+                        </Reorder.Item>
+                      ))}
+                    </Reorder.Group>
+                  )}
                 </div>
-              )
+
+                {/* ──── THE DIVIDER & INSTRUCTIONS ──── */}
+                <div className="flex items-center gap-6 py-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-slate-700 to-transparent" />
+                  <div className="flex items-center gap-3 px-6 py-2 rounded-full bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm">
+                    <RefreshCw size={14} className="text-[var(--color-leo-maroon)] animate-spin-slow" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                      Hover images for actions
+                    </span>
+                  </div>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 dark:via-slate-700 to-transparent" />
+                </div>
+
+                {/* 2. PHOTO LIBRARY SECTION (BOTTOM) */}
+                <div className="p-2">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-lg font-black text-gray-800 dark:text-white flex items-center gap-2">
+                        <FolderOpen size={22} className="text-blue-500" /> Photo Library
+                      </h3>
+                      <p className="text-[11px] font-medium text-gray-400 uppercase tracking-widest mt-1">
+                         Everything you've uploaded
+                      </p>
+                    </div>
+                  </div>
+
+                  <Reorder.Group 
+                    axis="y" 
+                    values={gallery.filter(i => !i.showOnHome).sort((a,b) => a.sortOrder - b.sortOrder)} 
+                    onReorder={(newOrder) => handleGalleryReorder(newOrder as GalleryImage[])}
+                    className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-6"
+                   >
+                    {gallery.filter(i => !i.showOnHome).sort((a, b) => a.sortOrder - b.sortOrder).map((item) => (
+                      <Reorder.Item 
+                        key={item.id} 
+                        value={item}
+                        className="relative group aspect-square rounded-2xl overflow-hidden cursor-grab active:cursor-grabbing border-2 border-gray-100 dark:border-slate-800 shadow-md hover:shadow-2xl hover:border-blue-500/50 transition-all bg-gray-100 dark:bg-slate-800"
+                      >
+                        <img src={item.src} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-end p-4">
+                           <div className="w-full flex flex-col gap-2">
+                              <button onClick={() => handleToggleShowOnHome(item)} className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl text-white text-[10px] font-black uppercase flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all">
+                                <Plus size={12} /> Promote to Home
+                              </button>
+                              <div className="flex gap-2">
+                                <button onClick={() => handleEditClick(item)} className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white text-[9px] font-bold text-center">Edit</button>
+                                <button onClick={() => handleDeleteClick(item)} className="flex-1 py-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-lg text-red-200 text-[9px] font-bold text-center">Delete</button>
+                              </div>
+                           </div>
+                        </div>
+                      </Reorder.Item>
+                    ))}
+                  </Reorder.Group>
+
+                  {gallery.filter(i => !i.showOnHome).length === 0 && (
+                    <div className="py-24 text-center border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-3xl">
+                      <p className="text-gray-400 text-sm font-medium italic">Photos uploaded to the library will appear here.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
+
+
+
 
             {/* ──── AWARDS TAB ──── */}
             {activeTab === 'awards' && (
@@ -429,7 +729,7 @@ const AdminDashboard = () => {
                       </div>
                       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => handleEditClick(award)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
-                        <button onClick={() => handleDeleteClick(award.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                         <button onClick={() => handleDeleteClick(award)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                       </div>
                     </div>
                   ))}
@@ -456,8 +756,29 @@ const AdminDashboard = () => {
                       <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{field.label}</label>
                       {field.type === 'textarea' ? (
                         <textarea rows={3} className={inputCls} value={contentForm[field.key] || ''} onChange={e => setContentForm({ ...contentForm, [field.key]: e.target.value })} />
+                      ) : field.type === 'image' ? (
+                        <div className="space-y-2">
+                           <ImagePreview url={contentFiles[field.key] ? URL.createObjectURL(contentFiles[field.key]!) : contentForm[field.key]} />
+                           <label className={`cursor-pointer w-full p-4 rounded-xl transition-all flex flex-col items-center justify-center border-2 border-dashed ${
+                            contentFiles[field.key] ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-gray-50 dark:bg-slate-700/40 border-gray-200 dark:border-slate-600 text-gray-400 hover:border-[var(--color-leo-maroon)] hover:text-[var(--color-leo-maroon)]'
+                          }`}>
+                            <ImagePlus size={24} className="mb-1" />
+                            <span className="text-xs font-medium">{contentFiles[field.key] ? 'Replace Selected Image' : 'Click to Upload Image'}</span>
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setContentFiles(prev => ({ ...prev, [field.key]: e.target.files![0] }));
+                              }
+                            }} />
+                          </label>
+                          {contentFiles[field.key] && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-100 dark:border-slate-600">
+                              <span className="text-[10px] text-gray-500 truncate flex-1">{contentFiles[field.key]?.name}</span>
+                              <button type="button" onClick={() => setContentFiles(prev => ({ ...prev, [field.key]: null }))} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
+                            </div>
+                          )}
+                        </div>
                       ) : (
-                        <input type={field.type} className={inputCls} value={contentForm[field.key] || ''} onChange={e => setContentForm({ ...contentForm, [field.key]: e.target.value })} />
+                        <input type={field.type === 'url' ? 'url' : 'text'} className={inputCls} value={contentForm[field.key] || ''} onChange={e => setContentForm({ ...contentForm, [field.key]: e.target.value })} />
                       )}
                     </div>
                   ))}
@@ -467,6 +788,7 @@ const AdminDashboard = () => {
                     </button>
                   </div>
                 </div>
+
               </div>
             )}
 
@@ -530,7 +852,7 @@ const AdminDashboard = () => {
             )}
           </div>
         </div>
-      </div>
+
 
       {/* ──── MODAL ──── */}
       {isModalOpen && (
@@ -557,8 +879,14 @@ const AdminDashboard = () => {
                   <FormField label="Date/Status"><input className={inputCls} value={projectForm.date || projectForm.status || ''} onChange={e => setProjectForm({ ...projectForm, date: e.target.value, status: e.target.value })} placeholder="e.g. Oct 2023" /></FormField>
                 </div>
                 <FormField label="Description"><textarea required rows={3} className={inputCls} value={projectForm.description || ''} onChange={e => setProjectForm({ ...projectForm, description: e.target.value })} /></FormField>
-                <FormField label="Image URL"><input type="url" required className={inputCls} value={projectForm.image || ''} onChange={e => setProjectForm({ ...projectForm, image: e.target.value })} placeholder="https://..." /></FormField>
-                <ImagePreview url={projectForm.image} />
+                <ImageUploadField 
+                  label="Image" 
+                  onFileChange={handleFileChange}
+                  selectedFile={selectedFile}
+                  uploading={uploadingImage}
+                />
+
+                <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : projectForm.image} />
               </>)}
               {activeTab === 'leadership' && (<>
                 <FormField label="Name"><input required className={inputCls} value={memberForm.name || ''} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} /></FormField>
@@ -568,28 +896,78 @@ const AdminDashboard = () => {
                     <option value="executive">Executive Committee</option><option value="board">Board of Directors</option>
                   </select>
                 </FormField>
-                <FormField label="Image URL"><input type="url" required className={inputCls} value={memberForm.image || ''} onChange={e => setMemberForm({ ...memberForm, image: e.target.value })} placeholder="https://..." /></FormField>
-                <ImagePreview url={memberForm.image} />
+                <ImageUploadField 
+                  label="Image" 
+                  onFileChange={handleFileChange}
+                  selectedFile={selectedFile}
+                  uploading={uploadingImage}
+                />
+
+                <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : memberForm.image} />
               </>)}
               {activeTab === 'gallery' && (<>
-                <FormField label="Caption"><input required className={inputCls} value={imageForm.alt || ''} onChange={e => setImageForm({ ...imageForm, alt: e.target.value })} /></FormField>
-                <FormField label="Image URL"><input type="url" required className={inputCls} value={imageForm.src || ''} onChange={e => setImageForm({ ...imageForm, src: e.target.value })} placeholder="https://..." /></FormField>
-                <ImagePreview url={imageForm.src} />
-                <div className="flex items-center justify-between">
+                {!editingItem && (
+                  <div className="flex bg-gray-100 dark:bg-slate-700 p-1 rounded-xl mb-4">
+                    <button type="button" onClick={() => { setIsBulkUpload(false); setSelectedFiles([]); }}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${!isBulkUpload ? 'bg-white dark:bg-slate-600 shadow-sm text-[var(--color-leo-maroon)]' : 'text-gray-500 hover:text-gray-700'}`}>
+                      Single Upload
+                    </button>
+                    <button type="button" onClick={() => { setIsBulkUpload(true); setSelectedFile(null); }}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${isBulkUpload ? 'bg-white dark:bg-slate-600 shadow-sm text-[var(--color-leo-maroon)]' : 'text-gray-500 hover:text-gray-700'}`}>
+                      Bulk Upload
+                    </button>
+                  </div>
+                )}
+                <FormField label={isBulkUpload ? "Event Name / Prefix" : "Caption"}>
+                  <input required className={inputCls} value={imageForm.alt || ''} onChange={e => setImageForm({ ...imageForm, alt: e.target.value })} placeholder="e.g. Induction 2024" />
+                </FormField>
+                <ImageUploadField 
+                  label={isBulkUpload ? "Select Images" : "Image"} 
+                  onFileChange={handleFileChange}
+                  selectedFile={isBulkUpload ? null : selectedFile}
+                  multiple={isBulkUpload}
+                  uploading={uploadingImage}
+                />
+                
+                {isBulkUpload && selectedFiles.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                      <span>Selected Files ({selectedFiles.length})</span>
+                      <button type="button" onClick={() => setSelectedFiles([])} className="text-red-500 hover:underline">Clear All</button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1">
+                      {selectedFiles.map((file, idx) => (
+                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-gray-100 dark:border-slate-700">
+                          <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {!isBulkUpload && <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : imageForm.src} />}
+                
+                <div className="flex items-center justify-between pt-2">
                   <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Show on Home Page</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" className="sr-only peer" checked={imageForm.showOnHome ?? true} onChange={e => setImageForm({ ...imageForm, showOnHome: e.target.checked })} />
                     <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500" />
                   </label>
                 </div>
-                <FormField label="Sort Order"><input type="number" className={inputCls} value={imageForm.sortOrder || 0} onChange={e => setImageForm({ ...imageForm, sortOrder: parseInt(e.target.value) || 0 })} /></FormField>
+                {!isBulkUpload && <FormField label="Sort Order"><input type="number" className={inputCls} value={imageForm.sortOrder || 0} onChange={e => setImageForm({ ...imageForm, sortOrder: parseInt(e.target.value) || 0 })} /></FormField>}
               </>)}
+
               {activeTab === 'awards' && (<>
                 <FormField label="Award Title"><input required className={inputCls} value={awardForm.title || ''} onChange={e => setAwardForm({ ...awardForm, title: e.target.value })} placeholder="e.g. Best Club Award" /></FormField>
                 <FormField label="Award Year"><input className={inputCls} value={awardForm.year || ''} onChange={e => setAwardForm({ ...awardForm, year: e.target.value })} placeholder="e.g. 2024/2025" /></FormField>
                 <FormField label="Description"><textarea rows={2} className={inputCls} value={awardForm.description || ''} onChange={e => setAwardForm({ ...awardForm, description: e.target.value })} placeholder="Briefly describe the award..." /></FormField>
-                <FormField label="Image URL"><input type="url" required className={inputCls} value={awardForm.image || ''} onChange={e => setAwardForm({ ...awardForm, image: e.target.value })} placeholder="https://..." /></FormField>
-                <ImagePreview url={awardForm.image} />
+                <ImageUploadField 
+                  label="Award Image" 
+                  onFileChange={handleFileChange}
+                  selectedFile={selectedFile}
+                  uploading={uploadingImage}
+                />
+
+                <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : awardForm.image} />
               </>)}
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting} className="px-4 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50">Cancel</button>
@@ -611,9 +989,12 @@ const AdminDashboard = () => {
         onConfirm={confirmDialog.onConfirm}
         onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
+      </main>
     </div>
   );
 };
+
+
 
 // ================================================================
 // Helpers
@@ -624,6 +1005,44 @@ const FormField = ({ label, children }: { label: string; children: React.ReactNo
     {children}
   </div>
 );
+
+const ImageUploadField = ({ label, onFileChange, selectedFile, uploading, multiple }: any) => (
+  <FormField label={label}>
+    <div className="space-y-2">
+      <label className={`cursor-pointer w-full p-8 rounded-xl transition-all flex flex-col items-center justify-center border-2 border-dashed ${
+        selectedFile || multiple ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-gray-50 dark:bg-slate-700/40 border-gray-200 dark:border-slate-600 text-gray-400 hover:border-[var(--color-leo-maroon)] hover:text-[var(--color-leo-maroon)]'
+      }`}>
+        {uploading ? (
+          <Loader2 size={32} className="animate-spin text-[var(--color-leo-maroon)]" />
+        ) : (
+          <ImagePlus size={32} className="mb-2" />
+        )}
+        <span className="text-sm font-bold">{selectedFile ? 'Replace Image' : multiple ? 'Select Multiple Images' : 'Select Image to Upload'}</span>
+        <span className="text-[10px] opacity-60 mt-1">PNG, JPG or WebP (Max 10MB)</span>
+        <input type="file" className="hidden" accept="image/*" onChange={onFileChange} disabled={uploading} multiple={multiple} />
+      </label>
+
+      
+      {selectedFile && !uploading && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-100 dark:border-slate-600">
+          <Image size={14} className="text-gray-400" />
+          <span className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 font-medium">{selectedFile.name}</span>
+          <button type="button" onClick={() => onFileChange({ target: { files: null } } as any)} className="text-gray-400 hover:text-red-500 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+      
+      {uploading && (
+        <div className="flex items-center justify-center gap-2 py-2 text-xs text-[var(--color-leo-maroon)] font-bold animate-pulse">
+          <div className="w-1.5 h-1.5 bg-[var(--color-leo-maroon)] rounded-full animate-bounce" />
+          Optimizing & Uploading...
+        </div>
+      )}
+    </div>
+  </FormField>
+);
+
 
 const EmptyState = ({ icon: Icon, text, sub }: { icon: any; text: string; sub: string }) => (
   <div className="text-center py-16">

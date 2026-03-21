@@ -27,14 +27,17 @@ const Home = () => {
         <meta name="twitter:card" content="summary_large_image" />
       </Helmet>
       <Navbar />
-      <Hero />
-      <About />
-      <Projects />
-      <Leadership />
-      <Awards />
-      <Gallery limit={6} showButton={true} />
-      <Contact />
+      <main id="main-content">
+        <Hero />
+        <About />
+        <Projects />
+        <Leadership />
+        <Awards />
+        <Gallery limit={6} showButton={true} />
+        <Contact />
+      </main>
       <Footer />
+
     </>
   );
 };

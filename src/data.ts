@@ -17,6 +17,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     hero_cta: 'Join Us',
     hero_tagline: 'Empowering Youth, Serving Community',
     hero_bg_image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=1920&auto=format&fit=crop',
+    site_logo: '',
+    site_banner: '',
 
     // About section
     about_mission: 'To provide the youth of the world with an opportunity for development and contribution, individually and collectively, as responsible members of the local, national, and international community.',

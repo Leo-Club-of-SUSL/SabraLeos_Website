@@ -21,11 +21,13 @@ interface DataContextType {
   addImage: (image: Omit<GalleryImage, 'id'>) => Promise<void>;
   updateImage: (id: number, image: Partial<GalleryImage>) => Promise<void>;
   deleteImage: (id: number) => Promise<void>;
+  bulkUpdateGallery: (updates: { id: number; showOnHome?: boolean; sortOrder?: number }[]) => Promise<void>;
   addAward: (award: Omit<Award, 'id'>) => Promise<void>;
+
   updateAward: (id: number, award: Partial<Award>) => Promise<void>;
   deleteAward: (id: number) => Promise<void>;
   updateSiteContent: (key: string, value: string) => Promise<void>;
-  bulkUpdateSiteContent: (entries: { key: string; value: string }[]) => Promise<void>;
+  bulkUpdateSiteContent: (entries: { key: string; value: string }[], section?: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -198,6 +200,33 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const bulkUpdateGallery = async (updates: { id: number; showOnHome?: boolean; sortOrder?: number }[]) => {
+    try {
+      const dbUpdates = updates.map(u => ({
+        id: u.id,
+        show_on_home: u.showOnHome,
+        sort_order: u.sortOrder
+      }));
+      await galleryAPI.bulkUpdate(dbUpdates);
+      
+      setGallery(prev => prev.map(img => {
+        const update = updates.find(u => u.id === img.id);
+        if (update) {
+          return {
+            ...img,
+            showOnHome: update.showOnHome !== undefined ? update.showOnHome : img.showOnHome,
+            sortOrder: update.sortOrder !== undefined ? update.sortOrder : img.sortOrder
+          };
+        }
+        return img;
+      }));
+    } catch (err) {
+      console.error('Error bulk updating gallery:', err);
+      throw err;
+    }
+  };
+
+
   // Award Actions
   const addAward = async (award: Omit<Award, 'id'>) => {
     try {
@@ -240,9 +269,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const bulkUpdateSiteContent = async (entries: { key: string; value: string }[]) => {
+  const bulkUpdateSiteContent = async (entries: { key: string; value: string }[], section?: string) => {
     try {
-      await siteContentAPI.bulkUpdate(entries);
+      await siteContentAPI.bulkUpdate(entries, section);
       setSiteContent(prev => {
         const updated = { ...prev };
         entries.forEach(({ key, value }) => {
@@ -278,8 +307,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       addImage,
       updateImage,
       deleteImage,
+      bulkUpdateGallery,
       awards,
       addAward,
+
       updateAward,
       deleteAward,
       updateSiteContent,
