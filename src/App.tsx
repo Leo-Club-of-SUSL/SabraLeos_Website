@@ -6,7 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
 
-const Home = lazy(() => import('./pages/Home'));
+import Home from './pages/Home';
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const GalleryPage = lazy(() => import('./pages/GalleryPage'));
