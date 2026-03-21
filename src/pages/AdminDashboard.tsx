@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { securityService } from '../lib/securityService';
+import { imageService } from '../lib/imageService';
 import type { SecurityLog } from '../lib/securityService';
 import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
 
@@ -78,6 +79,8 @@ const AdminDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Form States
   const [projectForm, setProjectForm] = useState<Partial<Project>>({ category: 'Upcoming', status: 'Active' });
@@ -109,15 +112,27 @@ const AdminDashboard = () => {
     setAwardForm({});
   };
 
-  const handleAddClick = () => { setEditingItem(null); resetForms(); setIsModalOpen(true); };
+  const handleAddClick = () => { 
+    setEditingItem(null); 
+    resetForms(); 
+    setSelectedFile(null);
+    setIsModalOpen(true); 
+  };
 
   const handleEditClick = (item: any) => {
     setEditingItem(item);
+    setSelectedFile(null);
     if (activeTab === 'projects') setProjectForm(item);
     if (activeTab === 'leadership') setMemberForm(item);
     if (activeTab === 'gallery') setImageForm(item);
     if (activeTab === 'awards') setAwardForm(item);
     setIsModalOpen(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
   };
 
   const handleDeleteClick = (id: number, type?: 'executive' | 'board') => {
@@ -141,19 +156,52 @@ const AdminDashboard = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    
+    let currentImageUrl = '';
+    if (activeTab === 'projects') currentImageUrl = projectForm.image || '';
+    if (activeTab === 'leadership') currentImageUrl = memberForm.image || '';
+    if (activeTab === 'gallery') currentImageUrl = imageForm.src || '';
+    if (activeTab === 'awards') currentImageUrl = awardForm.image || '';
+
     try {
+      // Handle Image Upload if a file is selected
+      if (selectedFile) {
+        setUploadingImage(true);
+        try {
+          const bucket = activeTab === 'projects' ? 'projects' : 
+                         activeTab === 'leadership' ? 'leadership' :
+                         activeTab === 'awards' ? 'awards' : 'gallery';
+          
+          // browser-image-compression happens within the imageService.uploadImage
+          const uploadedUrl = await imageService.uploadImage(selectedFile, bucket);
+          currentImageUrl = uploadedUrl;
+        } catch (err) {
+          showToast('Image upload failed. Please try again.', 'error');
+          setSubmitting(false);
+          setUploadingImage(false);
+          return;
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+
       if (activeTab === 'projects') {
-        editingItem ? await updateProject(projectForm as Project) : await addProject(projectForm as Omit<Project, 'id'>);
+        const finalForm = { ...projectForm, image: currentImageUrl };
+        editingItem ? await updateProject(finalForm as Project) : await addProject(finalForm as Omit<Project, 'id'>);
       } else if (activeTab === 'leadership') {
+        const finalForm = { ...memberForm, image: currentImageUrl };
         const t = memberForm.type as 'executive' | 'board';
-        editingItem ? await updateMember(memberForm as LeadershipMember, t) : await addMember(memberForm as Omit<LeadershipMember, 'id'>, t);
+        editingItem ? await updateMember(finalForm as LeadershipMember, t) : await addMember(finalForm as Omit<LeadershipMember, 'id'>, t);
       } else if (activeTab === 'gallery') {
-        editingItem ? await updateImage(editingItem.id, imageForm as Partial<GalleryImage>) : await addImage(imageForm as Omit<GalleryImage, 'id'>);
+        const finalForm = { ...imageForm, src: currentImageUrl };
+        editingItem ? await updateImage(editingItem.id, finalForm as Partial<GalleryImage>) : await addImage(finalForm as Omit<GalleryImage, 'id'>);
       } else if (activeTab === 'awards') {
-        editingItem ? await updateAward(editingItem.id, awardForm as Partial<Award>) : await addAward(awardForm as Omit<Award, 'id'>);
+        const finalForm = { ...awardForm, image: currentImageUrl };
+        editingItem ? await updateAward(editingItem.id, finalForm as Partial<Award>) : await addAward(finalForm as Omit<Award, 'id'>);
       }
       setIsModalOpen(false);
       resetForms();
+      setSelectedFile(null);
       showToast(editingItem ? 'Updated successfully!' : 'Created successfully!', 'success');
     } catch { showToast('Failed to save. Please try again.', 'error'); }
     finally { setSubmitting(false); }
@@ -557,8 +605,16 @@ const AdminDashboard = () => {
                   <FormField label="Date/Status"><input className={inputCls} value={projectForm.date || projectForm.status || ''} onChange={e => setProjectForm({ ...projectForm, date: e.target.value, status: e.target.value })} placeholder="e.g. Oct 2023" /></FormField>
                 </div>
                 <FormField label="Description"><textarea required rows={3} className={inputCls} value={projectForm.description || ''} onChange={e => setProjectForm({ ...projectForm, description: e.target.value })} /></FormField>
-                <FormField label="Image URL"><input type="url" required className={inputCls} value={projectForm.image || ''} onChange={e => setProjectForm({ ...projectForm, image: e.target.value })} placeholder="https://..." /></FormField>
-                <ImagePreview url={projectForm.image} />
+                <ImageUploadField 
+                  label="Image" 
+                  value={projectForm.image} 
+                  onChange={(e: any) => setProjectForm({ ...projectForm, image: e.target.value })}
+                  onFileChange={handleFileChange}
+                  selectedFile={selectedFile}
+                  uploading={uploadingImage}
+                  inputCls={inputCls}
+                />
+                <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : projectForm.image} />
               </>)}
               {activeTab === 'leadership' && (<>
                 <FormField label="Name"><input required className={inputCls} value={memberForm.name || ''} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} /></FormField>
@@ -568,13 +624,29 @@ const AdminDashboard = () => {
                     <option value="executive">Executive Committee</option><option value="board">Board of Directors</option>
                   </select>
                 </FormField>
-                <FormField label="Image URL"><input type="url" required className={inputCls} value={memberForm.image || ''} onChange={e => setMemberForm({ ...memberForm, image: e.target.value })} placeholder="https://..." /></FormField>
-                <ImagePreview url={memberForm.image} />
+                <ImageUploadField 
+                  label="Image" 
+                  value={memberForm.image} 
+                  onChange={(e: any) => setMemberForm({ ...memberForm, image: e.target.value })}
+                  onFileChange={handleFileChange}
+                  selectedFile={selectedFile}
+                  uploading={uploadingImage}
+                  inputCls={inputCls}
+                />
+                <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : memberForm.image} />
               </>)}
               {activeTab === 'gallery' && (<>
                 <FormField label="Caption"><input required className={inputCls} value={imageForm.alt || ''} onChange={e => setImageForm({ ...imageForm, alt: e.target.value })} /></FormField>
-                <FormField label="Image URL"><input type="url" required className={inputCls} value={imageForm.src || ''} onChange={e => setImageForm({ ...imageForm, src: e.target.value })} placeholder="https://..." /></FormField>
-                <ImagePreview url={imageForm.src} />
+                <ImageUploadField 
+                  label="Image" 
+                  value={imageForm.src} 
+                  onChange={(e: any) => setImageForm({ ...imageForm, src: e.target.value })}
+                  onFileChange={handleFileChange}
+                  selectedFile={selectedFile}
+                  uploading={uploadingImage}
+                  inputCls={inputCls}
+                />
+                <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : imageForm.src} />
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Show on Home Page</span>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -588,8 +660,16 @@ const AdminDashboard = () => {
                 <FormField label="Award Title"><input required className={inputCls} value={awardForm.title || ''} onChange={e => setAwardForm({ ...awardForm, title: e.target.value })} placeholder="e.g. Best Club Award" /></FormField>
                 <FormField label="Award Year"><input className={inputCls} value={awardForm.year || ''} onChange={e => setAwardForm({ ...awardForm, year: e.target.value })} placeholder="e.g. 2024/2025" /></FormField>
                 <FormField label="Description"><textarea rows={2} className={inputCls} value={awardForm.description || ''} onChange={e => setAwardForm({ ...awardForm, description: e.target.value })} placeholder="Briefly describe the award..." /></FormField>
-                <FormField label="Image URL"><input type="url" required className={inputCls} value={awardForm.image || ''} onChange={e => setAwardForm({ ...awardForm, image: e.target.value })} placeholder="https://..." /></FormField>
-                <ImagePreview url={awardForm.image} />
+                <ImageUploadField 
+                  label="Award Image" 
+                  value={awardForm.image} 
+                  onChange={(e: any) => setAwardForm({ ...awardForm, image: e.target.value })}
+                  onFileChange={handleFileChange}
+                  selectedFile={selectedFile}
+                  uploading={uploadingImage}
+                  inputCls={inputCls}
+                />
+                <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : awardForm.image} />
               </>)}
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting} className="px-4 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50">Cancel</button>
@@ -623,6 +703,35 @@ const FormField = ({ label, children }: { label: string; children: React.ReactNo
     <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{label}</label>
     {children}
   </div>
+);
+
+const ImageUploadField = ({ label, value, onChange, onFileChange, selectedFile, uploading, inputCls }: any) => (
+  <FormField label={label}>
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <input type="url" className={`${inputCls} flex-1`} value={value || ''} onChange={onChange} placeholder="Image URL (or upload below)" />
+        <label className={`cursor-pointer p-2.5 rounded-xl transition-all flex items-center justify-center border-2 border-dashed ${
+          selectedFile ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-gray-50 dark:bg-slate-700/40 border-gray-200 dark:border-slate-600 text-gray-400 hover:border-[var(--color-leo-maroon)] hover:text-[var(--color-leo-maroon)]'
+        }`}>
+          {uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+          <input type="file" className="hidden" accept="image/*" onChange={onFileChange} disabled={uploading} />
+        </label>
+      </div>
+      {selectedFile && !uploading && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-100 dark:border-slate-600">
+          <Image size={14} className="text-gray-400" />
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate flex-1">{selectedFile.name} (Ready to compress & upload)</span>
+          <button type="button" onClick={() => onFileChange({ target: { files: null } } as any)} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
+        </div>
+      )}
+      {uploading && (
+        <div className="flex items-center gap-2 text-[10px] text-[var(--color-leo-maroon)] font-bold animate-pulse">
+          <Loader2 size={10} className="animate-spin" />
+          Compressing & Uploading image...
+        </div>
+      )}
+    </div>
+  </FormField>
 );
 
 const EmptyState = ({ icon: Icon, text, sub }: { icon: any; text: string; sub: string }) => (
