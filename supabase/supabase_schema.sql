@@ -22,9 +22,10 @@ CREATE TABLE IF NOT EXISTS leadership (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   position TEXT NOT NULL,
-  role_type TEXT NOT NULL CHECK (role_type IN ('Executive', 'Board')),
+  role_type TEXT NOT NULL CHECK (role_type IN ('Executive', 'Board', 'Chief')),
   image_url TEXT NOT NULL,
   year TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- Create index for faster role_type filtering
@@ -319,3 +320,28 @@ VALUES
   ('Best Community Project', 'Recognized for the impact of our Blood Donation Campaign.', 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=400', '2023/2024'),
   ('Outstanding Leadership', 'Special recognition for the club president.', 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?w=400', '2022/2023')
 ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- Table: contact_messages
+-- ============================================
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS on contact_messages table
+ALTER TABLE contact_messages ENABLE ROW LEVEL SECURITY;
+
+-- Allow anyone to submit a contact message (insert)
+CREATE POLICY "Allow public insert on contact_messages" ON contact_messages FOR
+INSERT TO public WITH CHECK (true);
+
+-- Only authenticated users (admins) can read contact messages
+CREATE POLICY "Allow authenticated read on contact_messages" ON contact_messages FOR
+SELECT TO authenticated USING (true);
+
+-- Only authenticated users can delete contact messages
+CREATE POLICY "Allow authenticated delete on contact_messages" ON contact_messages FOR DELETE TO authenticated USING (true);

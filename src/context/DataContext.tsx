@@ -15,9 +15,10 @@ interface DataContextType {
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
   updateProject: (project: Project) => Promise<void>;
   deleteProject: (id: number) => Promise<void>;
-  addMember: (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board') => Promise<void>;
-  updateMember: (member: LeadershipMember, type: 'executive' | 'board') => Promise<void>;
-  deleteMember: (id: number, type: 'executive' | 'board') => Promise<void>;
+  addMember: (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board' | 'chief') => Promise<void>;
+  updateMember: (member: LeadershipMember, type: 'executive' | 'board' | 'chief') => Promise<void>;
+  deleteMember: (id: number, type: 'executive' | 'board' | 'chief') => Promise<void>;
+  bulkUpdateLeadership: (updates: { id: number; sort_order?: number }[]) => Promise<void>;
   addImage: (image: Omit<GalleryImage, 'id'>) => Promise<void>;
   updateImage: (id: number, image: Partial<GalleryImage>) => Promise<void>;
   deleteImage: (id: number) => Promise<void>;
@@ -35,7 +36,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [leadership, setLeadership] = useState<LeadershipData>({ executive: [], board: [] });
+  const [leadership, setLeadership] = useState<LeadershipData>({ executive: [], chief: [], board: [] });
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [awards, setAwards] = useState<Award[]>([]);
   const [siteContent, setSiteContent] = useState<SiteContent>(DEFAULT_SITE_CONTENT);
@@ -125,9 +126,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Leadership Actions
-  const addMember = async (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board') => {
+  const addMember = async (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board' | 'chief') => {
     try {
-      const roleType = type === 'executive' ? 'Executive' : 'Board';
+      const roleType = type === 'executive' ? 'Executive' : type === 'chief' ? 'Chief' : 'Board';
       const newMember = await leadershipAPI.create(member, roleType);
 
       setLeadership(prev => ({
@@ -140,9 +141,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateMember = async (updatedMember: LeadershipMember, type: 'executive' | 'board') => {
+  const updateMember = async (updatedMember: LeadershipMember, type: 'executive' | 'board' | 'chief') => {
     try {
-      const roleType = type === 'executive' ? 'Executive' : 'Board';
+      const roleType = type === 'executive' ? 'Executive' : type === 'chief' ? 'Chief' : 'Board';
       const updated = await leadershipAPI.update(updatedMember.id, updatedMember, roleType);
 
       setLeadership(prev => ({
@@ -155,7 +156,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const deleteMember = async (id: number, type: 'executive' | 'board') => {
+  const deleteMember = async (id: number, type: 'executive' | 'board' | 'chief') => {
     try {
       await leadershipAPI.delete(id);
 
@@ -165,6 +166,32 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }));
     } catch (err) {
       console.error('Error deleting member:', err);
+      throw err;
+    }
+  };
+
+  const bulkUpdateLeadership = async (updates: { id: number; sort_order?: number }[]) => {
+    try {
+      // Optimistic update for instant UI feedback
+      setLeadership(prev => {
+        const newData = { ...prev };
+        (['executive', 'chief', 'board'] as const).forEach(type => {
+          newData[type] = newData[type].map(member => {
+            const update = updates.find(u => u.id === member.id);
+            if (update && update.sort_order !== undefined) {
+              return { ...member, sortOrder: update.sort_order };
+            }
+            return member;
+          });
+        });
+        return newData;
+      });
+
+      await leadershipAPI.bulkUpdate(updates);
+    } catch (err) {
+      console.error('Error bulk updating leadership:', err);
+      const freshData = await leadershipAPI.getAll();
+      setLeadership(freshData);
       throw err;
     }
   };
@@ -304,6 +331,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       addMember,
       updateMember,
       deleteMember,
+      bulkUpdateLeadership,
       addImage,
       updateImage,
       deleteImage,

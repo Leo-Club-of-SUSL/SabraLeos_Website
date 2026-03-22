@@ -33,7 +33,7 @@ const GalleryPage = () => {
 
             <Navbar />
             <main className="flex-grow pt-20">
-                <Gallery />
+                <Gallery enableLightbox={true} />
             </main>
             <Footer />
         </div>

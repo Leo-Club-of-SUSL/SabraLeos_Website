@@ -1,9 +1,44 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Mail, Phone, MapPin, Facebook, Instagram, MessageCircle, Linkedin } from 'lucide-react';
+import { Mail, Phone, MapPin, Facebook, Instagram, MessageCircle, Linkedin, Send, Loader2, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { messagesAPI } from '../lib/supabaseService';
 
 const Contact = () => {
   const { siteContent } = useData();
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    message: ''
+  });
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (status === 'submitting') return;
+
+    setStatus('submitting');
+    setErrorMessage('');
+
+    try {
+      await messagesAPI.create(formData);
+      setStatus('success');
+      setFormData({ name: '', email: '', message: '' });
+      
+      // Reset success message after 5 seconds
+      setTimeout(() => setStatus('idle'), 5000);
+    } catch (error) {
+      console.error('Contact submission error:', error);
+      setStatus('error');
+      setErrorMessage('Failed to send message. Please try again later.');
+    }
+  };
 
   return (
     <section id="contact" className="py-20 bg-[var(--color-leo-maroon)] text-white">
@@ -74,45 +109,94 @@ const Contact = () => {
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="bg-white dark:bg-slate-800 rounded-2xl p-8 shadow-2xl"
+            className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-2xl relative overflow-hidden"
           >
-            <form className="space-y-6">
-              <div>
-                <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Name</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all"
-                  placeholder="Your Name"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Email</label>
-                <input
-                  type="email"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all"
-                  placeholder="your@email.com"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Message</label>
-                <textarea
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all"
-                  placeholder="How can we help you?"
-                ></textarea>
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] font-bold py-4 rounded-lg hover:bg-[#eec136] transition-colors shadow-lg cursor-pointer"
-              >
-                Send Message
-              </button>
-            </form>
+            <AnimatePresence mode="wait">
+              {status === 'success' ? (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="flex flex-col items-center justify-center py-12 text-center"
+                >
+                  <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-full text-green-600 mb-6">
+                    <CheckCircle2 size={64} />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Message Sent!</h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Thank you for reaching out. We'll get back to you soon.
+                  </p>
+                </motion.div>
+              ) : (
+                <form key="form" onSubmit={handleSubmit} className="space-y-6">
+                  <div>
+                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
+                      placeholder="Your Name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
+                      placeholder="your@email.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Message</label>
+                    <textarea
+                      name="message"
+                      required
+                      rows={4}
+                      value={formData.message}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
+                      placeholder="How can we help you?"
+                    ></textarea>
+                  </div>
+
+                  {status === 'error' && (
+                    <p className="text-red-500 text-sm font-semibold">{errorMessage}</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={status === 'submitting'}
+                    className="w-full bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] font-bold py-4 rounded-lg hover:bg-[#eec136] transition-colors shadow-lg cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    {status === 'submitting' ? (
+                      <>
+                        <Loader2 className="animate-spin" size={20} />
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send size={20} />
+                        <span>Send Message</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
       </div>
     </section>
   );
 };
+
 
 export default Contact;

@@ -4,17 +4,17 @@ import {
   ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, 
   Loader2, Settings, Shield, LogOut, AlertTriangle, CheckCircle, 
   XCircle, Lock, RefreshCw, Mail, Clock, ImagePlus, Trophy, 
-  BarChart3
+  BarChart3, ArrowUp, ArrowDown
 } from 'lucide-react';
+
+import { messagesAPI } from '../lib/supabaseService';
 
 import AnalyticsWidget from '../components/admin/AnalyticsWidget';
 
 
 import { Reorder } from 'framer-motion';
-
-
-
-import { useData } from '../context/DataContext';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '../lib/cropImage';import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -23,7 +23,7 @@ import { imageService } from '../lib/imageService';
 import type { SecurityLog } from '../lib/securityService';
 import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
 
-type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'security' | 'analytics';
+type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'messages' | 'security' | 'analytics';
 
 // ================================================================
 // Tab Config
@@ -35,6 +35,7 @@ const TAB_CONFIG: { key: TabType; label: string; icon: any; color: string }[] = 
   { key: 'gallery', label: 'Gallery', icon: Image, color: 'text-gray-400' },
   { key: 'awards', label: 'Awards', icon: Trophy, color: 'text-gray-400' },
   { key: 'content', label: 'Content', icon: Settings, color: 'text-gray-400' },
+  { key: 'messages', label: 'Messages', icon: Mail, color: 'text-gray-400' },
   { key: 'security', label: 'Security', icon: Shield, color: 'text-gray-400' },
 ];
 
@@ -85,7 +86,7 @@ const AdminDashboard = () => {
     addMember, updateMember, deleteMember,
     addImage, updateImage, deleteImage,
     addAward, updateAward, deleteAward,
-    bulkUpdateSiteContent, bulkUpdateGallery
+    bulkUpdateSiteContent, bulkUpdateGallery, bulkUpdateLeadership
   } = useData();
 
 
@@ -96,6 +97,13 @@ const AdminDashboard = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isBulkUpload, setIsBulkUpload] = useState(false);
+
+  // Cropper State
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
 
@@ -118,6 +126,10 @@ const AdminDashboard = () => {
   const [securityLoading, setSecurityLoading] = useState(false);
   const [alertEmail, setAlertEmail] = useState('');
   const [alertEmailSaving, setAlertEmailSaving] = useState(false);
+
+  // Messages state
+  const [messages, setMessages] = useState<any[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
 
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -158,17 +170,43 @@ const AdminDashboard = () => {
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+    if (e.target.files && e.target.files.length > 0) {
       if (isBulkUpload && activeTab === 'gallery') {
         setSelectedFiles(Array.from(e.target.files));
       } else {
-        setSelectedFile(e.target.files[0]);
+        const file = e.target.files[0];
+        if (activeTab === 'leadership') {
+          // Open Cropper
+          setCropImageSrc(URL.createObjectURL(file));
+          setCropModalOpen(true);
+          setCrop({ x: 0, y: 0 });
+          setZoom(1);
+        } else {
+          setSelectedFile(file);
+        }
       }
     }
   };
 
+  const onCropComplete = (_croppedArea: any, pixels: any) => {
+    setCroppedAreaPixels(pixels);
+  };
 
-  const handleDeleteClick = (item: any, type?: 'executive' | 'board') => {
+  const handleCropSubmit = async () => {
+    if (!cropImageSrc || !croppedAreaPixels) return;
+    try {
+      const croppedFile = await getCroppedImg(cropImageSrc, croppedAreaPixels, 'profile.jpg');
+      setSelectedFile(croppedFile);
+      setCropModalOpen(false);
+      setCropImageSrc(null);
+    } catch (e) {
+      console.error(e);
+      showToast('Cropping failed', 'error');
+    }
+  };
+
+
+  const handleDeleteClick = (item: any, type?: 'executive' | 'board' | 'chief') => {
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Item',
@@ -190,6 +228,10 @@ const AdminDashboard = () => {
           if (activeTab === 'leadership' && type) await deleteMember(item.id, type);
           if (activeTab === 'gallery') await deleteImage(item.id);
           if (activeTab === 'awards') await deleteAward(item.id);
+          if (activeTab === 'messages') {
+            await messagesAPI.delete(item.id);
+            fetchMessages();
+          }
           showToast('Item deleted successfully', 'success');
         } catch (err) { 
           console.error(err);
@@ -279,7 +321,7 @@ const AdminDashboard = () => {
         editingItem ? await updateProject(finalForm as Project) : await addProject(finalForm as Omit<Project, 'id'>);
       } else if (activeTab === 'leadership') {
         const finalForm = { ...memberForm, image: currentImageUrl };
-        const t = memberForm.type as 'executive' | 'board';
+        const t = memberForm.type as 'executive' | 'board' | 'chief';
         editingItem ? await updateMember(finalForm as LeadershipMember, t) : await addMember(finalForm as Omit<LeadershipMember, 'id'>, t);
       } else if (activeTab === 'gallery') {
         // Force new images to Library
@@ -318,6 +360,32 @@ const AdminDashboard = () => {
       console.error(err);
       showToast('Failed to save order', 'error');
     }
+  };
+
+  const handleLeadershipReorder = async (newOrder: LeadershipMember[]) => {
+    try {
+      const updates = newOrder.map((member, idx) => ({
+        id: member.id,
+        sort_order: idx
+      }));
+      await bulkUpdateLeadership(updates);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save hierarchy order', 'error');
+    }
+  };
+
+  const moveLeadershipMember = (member: LeadershipMember, groupType: 'executive' | 'board' | 'chief', direction: 'up' | 'down') => {
+    const items = [...leadership[groupType]].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const idx = items.findIndex(m => m.id === member.id);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === items.length - 1) return;
+    
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    [items[idx], items[swapIdx]] = [items[swapIdx], items[idx]];
+    
+    handleLeadershipReorder(items);
   };
 
   const handleToggleShowOnHome = async (img: GalleryImage) => {
@@ -392,13 +460,31 @@ const AdminDashboard = () => {
 
   const handleSignOut = async () => { await signOut(); navigate('/admin', { replace: true }); };
 
+  // Message handlers
+  const fetchMessages = async () => {
+    setMessagesLoading(true);
+    try {
+      const data = await messagesAPI.getAll();
+      setMessages(data);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to load messages', 'error');
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     if (tab === 'content') initContentForm(contentSection);
     if (tab === 'security') { fetchSecurityLogs(); setAlertEmail(siteContent['alert_email'] || ''); }
+    if (tab === 'messages') fetchMessages();
   };
 
-  useEffect(() => { if (activeTab === 'security') setAlertEmail(siteContent['alert_email'] || ''); }, [siteContent, activeTab]);
+  useEffect(() => { 
+    if (activeTab === 'security') setAlertEmail(siteContent['alert_email'] || ''); 
+    if (activeTab === 'messages') fetchMessages();
+  }, [siteContent, activeTab]);
 
   // Counts
   const getTabCount = (tab: TabType) => {
@@ -406,6 +492,7 @@ const AdminDashboard = () => {
     if (tab === 'leadership') return leadership.executive.length + leadership.board.length;
     if (tab === 'gallery') return gallery.length;
     if (tab === 'awards') return awards.length;
+    if (tab === 'messages') return messages.length;
     return null;
   };
 
@@ -513,7 +600,7 @@ const AdminDashboard = () => {
           <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-3">
             <div>
               <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-                {activeTab === 'analytics' ? 'Website Insights' : activeTab === 'content' ? 'Site Content' : activeTab === 'security' ? 'Security Center' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management`}
+                {activeTab === 'analytics' ? 'Website Insights' : activeTab === 'content' ? 'Site Content' : activeTab === 'security' ? 'Security Center' : activeTab === 'messages' ? 'Contact Messages' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management`}
               </h2>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 {activeTab === 'analytics' && 'Website traffic and visitor insights'}
@@ -522,6 +609,7 @@ const AdminDashboard = () => {
                 {activeTab === 'gallery' && 'Upload and organize gallery images'}
                 {activeTab === 'awards' && 'Manage club awards and milestones'}
                 {activeTab === 'content' && 'Edit website text and settings'}
+                {activeTab === 'messages' && 'View and manage contact form submissions'}
                 {activeTab === 'security' && 'Monitor login activity and alerts'}
               </p>
             </div>
@@ -576,26 +664,37 @@ const AdminDashboard = () => {
             {/* ──── LEADERSHIP TAB ──── */}
             {activeTab === 'leadership' && (
               <div className="space-y-8">
-                {(['executive', 'board'] as const).map(groupType => {
-                  const members = leadership[groupType];
+                {(['executive', 'chief', 'board'] as const).map(groupType => {
+                  const items = [...leadership[groupType]].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
                   return (
                     <div key={groupType}>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">{groupType === 'executive' ? 'Executive Committee' : 'Board of Directors'}</h3>
-                      {members.length === 0 ? (
-                        <p className="text-gray-400 text-sm py-4">No members added yet.</p>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-0">
+                          {groupType === 'executive' ? 'Executive Committee' : groupType === 'chief' ? 'Chief Directors' : 'Board of Directors'}
+                        </h3>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 italic block">Use arrows to reorder hierarchy</span>
+                      </div>
+                      {items.length === 0 ? (
+                        <p className="text-gray-400 text-sm py-4 border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-2xl text-center">No members added yet.</p>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {members.map(member => (
-                            <div key={member.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors group">
-                              <img src={member.image} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" />
+                        <div className="space-y-3">
+                          {items.map((member, idx) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500/50 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-all group bg-white dark:bg-slate-800 hover:shadow-md"
+                            >
+                              <img src={member.image} alt="" className="w-11 h-11 rounded-full object-cover shrink-0 pointer-events-none" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-sm text-gray-800 dark:text-white truncate">{member.name}</p>
                                 <p className="text-xs text-gray-400 truncate">{member.position}</p>
                               </div>
-                              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handleEditClick(member)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
-                                <button onClick={() => handleDeleteClick(member, groupType)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
-
+                              <div className="flex gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity items-center">
+                                <div className="flex flex-col gap-0.5 border-r border-gray-200 dark:border-slate-700 pr-2 mr-1">
+                                  <button disabled={idx === 0} onClick={() => moveLeadershipMember(member, groupType, 'up')} className="p-0.5 text-gray-400 hover:text-emerald-500 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"><ArrowUp size={14} /></button>
+                                  <button disabled={idx === items.length - 1} onClick={() => moveLeadershipMember(member, groupType, 'down')} className="p-0.5 text-gray-400 hover:text-emerald-500 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"><ArrowDown size={14} /></button>
+                                </div>
+                                <button onClick={() => handleEditClick(member)} className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Edit size={16} /></button>
+                                <button onClick={() => handleDeleteClick(member, groupType)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
                               </div>
                             </div>
                           ))}
@@ -677,43 +776,50 @@ const AdminDashboard = () => {
                         <FolderOpen size={22} className="text-blue-500" /> Photo Library
                       </h3>
                       <p className="text-[11px] font-medium text-gray-400 uppercase tracking-widest mt-1">
-                         Everything you've uploaded
+                         Grouped by Album (Caption)
                       </p>
                     </div>
                   </div>
 
-                  <Reorder.Group 
-                    axis="y" 
-                    values={gallery.filter(i => !i.showOnHome).sort((a,b) => a.sortOrder - b.sortOrder)} 
-                    onReorder={(newOrder) => handleGalleryReorder(newOrder as GalleryImage[])}
-                    className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-6"
-                   >
-                    {gallery.filter(i => !i.showOnHome).sort((a, b) => a.sortOrder - b.sortOrder).map((item) => (
-                      <Reorder.Item 
-                        key={item.id} 
-                        value={item}
-                        className="relative group aspect-square rounded-2xl overflow-hidden cursor-grab active:cursor-grabbing border-2 border-gray-100 dark:border-slate-800 shadow-md hover:shadow-2xl hover:border-blue-500/50 transition-all bg-gray-100 dark:bg-slate-800"
-                      >
-                        <img src={item.src} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                        
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-end p-4">
-                           <div className="w-full flex flex-col gap-2">
-                              <button onClick={() => handleToggleShowOnHome(item)} className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl text-white text-[10px] font-black uppercase flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all">
-                                <Plus size={12} /> Promote to Home
-                              </button>
-                              <div className="flex gap-2">
-                                <button onClick={() => handleEditClick(item)} className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white text-[9px] font-bold text-center">Edit</button>
-                                <button onClick={() => handleDeleteClick(item)} className="flex-1 py-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-lg text-red-200 text-[9px] font-bold text-center">Delete</button>
-                              </div>
-                           </div>
-                        </div>
-                      </Reorder.Item>
-                    ))}
-                  </Reorder.Group>
-
-                  {gallery.filter(i => !i.showOnHome).length === 0 && (
+                  {gallery.filter(i => !i.showOnHome).length === 0 ? (
                     <div className="py-24 text-center border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-3xl">
                       <p className="text-gray-400 text-sm font-medium italic">Photos uploaded to the library will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-8">
+                      {Array.from(new Set(gallery.filter(i => !i.showOnHome).map(img => img.alt || 'Uncategorized'))).map(album => (
+                        <div key={album} className="bg-gray-50/50 dark:bg-slate-800/30 p-5 rounded-3xl border border-gray-100 dark:border-slate-700/50">
+                          <h4 className="text-md font-bold text-gray-700 dark:text-gray-200 mb-4 px-2 flex items-center gap-2">
+                             <Image size={18} className="text-gray-400" />
+                             {album}
+                             <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-200 dark:bg-slate-700 tracking-wider text-gray-500 dark:text-gray-400 rounded-full">
+                               {gallery.filter(i => !i.showOnHome && (i.alt || 'Uncategorized') === album).length} PHOTOS
+                             </span>
+                          </h4>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-6">
+                            {gallery.filter(i => !i.showOnHome && (i.alt || 'Uncategorized') === album).sort((a,b) => a.sortOrder - b.sortOrder).map((item) => (
+                              <div 
+                                key={item.id} 
+                                className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-gray-100 dark:border-slate-800 shadow-md hover:shadow-lg hover:border-blue-500/50 transition-all bg-gray-100 dark:bg-slate-800"
+                              >
+                                <img src={item.src} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
+                                
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-end p-4">
+                                   <div className="w-full flex flex-col gap-2">
+                                      <button onClick={() => handleToggleShowOnHome(item)} className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl text-white text-[10px] font-black uppercase flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all">
+                                        <Plus size={12} /> Promote to Home
+                                      </button>
+                                      <div className="flex gap-2">
+                                        <button onClick={() => handleEditClick(item)} className="flex-1 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white text-[9px] font-bold text-center">Edit</button>
+                                        <button onClick={() => handleDeleteClick(item)} className="flex-1 py-1.5 bg-red-500/20 hover:bg-red-500/40 rounded-lg text-red-200 text-[9px] font-bold text-center">Delete</button>
+                                      </div>
+                                   </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -859,9 +965,98 @@ const AdminDashboard = () => {
                 </div>
               </div>
             )}
+
+            {/* ──── MESSAGES TAB ──── */}
+            {activeTab === 'messages' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center mb-2">
+                   <h3 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2"><Mail size={16} /> Recent Submissions</h3>
+                   <button onClick={fetchMessages} disabled={messagesLoading} className="text-xs text-[var(--color-leo-maroon)] hover:underline flex items-center gap-1 disabled:opacity-50">
+                      <RefreshCw size={12} className={messagesLoading ? 'animate-spin' : ''} /> Refresh
+                   </button>
+                </div>
+
+                {messagesLoading && !messages.length ? (
+                  <div className="text-center py-12 text-gray-400"><Loader2 size={24} className="animate-spin mx-auto mb-2" />Loading messages...</div>
+                ) : messages.length === 0 ? (
+                  <EmptyState icon={Mail} text="No messages yet" sub="Contact form submissions will appear here" />
+                ) : (
+                  <div className="grid gap-4">
+                    {messages.map(msg => (
+                      <div key={msg.id} className="p-5 rounded-2xl border border-gray-100 dark:border-slate-700 bg-gray-50/30 dark:bg-slate-700/10 hover:border-gray-200 dark:hover:border-slate-600 transition-all group relative">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-[var(--color-leo-maroon)] text-white flex items-center justify-center font-bold">
+                              {msg.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-800 dark:text-white text-sm">{msg.name}</h4>
+                              <p className="text-xs text-gray-400 font-medium">{msg.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(msg.createdAt).toLocaleDateString()}</span>
+                            <button onClick={() => handleDeleteClick(msg)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="bg-white/50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed shadow-inner">
+                          {msg.message}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
+      {/* ──── CROP MODAL ──── */}
+      {cropModalOpen && cropImageSrc && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden w-full max-w-lg flex flex-col h-[70vh] shadow-2xl">
+             <div className="px-6 py-4 flex justify-between items-center border-b border-gray-100 dark:border-slate-700">
+               <h3 className="font-bold text-gray-800 dark:text-white">Crop Image</h3>
+               <button onClick={() => { setCropModalOpen(false); setCropImageSrc(null); cropImageSrc && URL.revokeObjectURL(cropImageSrc); }} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-400">
+                  <X size={20} />
+               </button>
+             </div>
+             <div className="relative flex-1 bg-gray-900 w-full min-h-[300px]">
+               <Cropper
+                 image={cropImageSrc}
+                 crop={crop}
+                 zoom={zoom}
+                 aspect={1}
+                 onCropChange={setCrop}
+                 onCropComplete={onCropComplete}
+                 onZoomChange={setZoom}
+                 cropShape="round"
+                 showGrid={false}
+               />
+             </div>
+             <div className="p-6 border-t border-gray-100 dark:border-slate-700">
+                <input 
+                  type="range" 
+                  value={zoom} 
+                  min={1} 
+                  max={3} 
+                  step={0.1} 
+                  aria-label="Zoom"
+                  onChange={(e) => setZoom(Number(e.target.value))} 
+                  className="w-full mb-6 accent-[var(--color-leo-maroon)]" 
+                />
+                <button 
+                  onClick={handleCropSubmit} 
+                  className="w-full py-3 bg-[var(--color-leo-maroon)] text-white rounded-xl font-bold shadow-md hover:bg-red-800 active:scale-95 transition-all"
+                >
+                  Apply Crop
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* ──── MODAL ──── */}
       {isModalOpen && (
@@ -902,7 +1097,9 @@ const AdminDashboard = () => {
                 <FormField label="Position"><input required className={inputCls} value={memberForm.position || ''} onChange={e => setMemberForm({ ...memberForm, position: e.target.value })} /></FormField>
                 <FormField label="Type">
                   <select className={inputCls} value={memberForm.type} onChange={e => setMemberForm({ ...memberForm, type: e.target.value as any })}>
-                    <option value="executive">Executive Committee</option><option value="board">Board of Directors</option>
+                    <option value="executive">Executive Committee</option>
+                    <option value="chief">Chief Director</option>
+                    <option value="board">Board of Director</option>
                   </select>
                 </FormField>
                 <ImageUploadField 
@@ -927,7 +1124,7 @@ const AdminDashboard = () => {
                     </button>
                   </div>
                 )}
-                <FormField label={isBulkUpload ? "Event Name / Prefix" : "Caption"}>
+                <FormField label={isBulkUpload ? "Album Name / Event Prefix" : "Album Name (Caption)"}>
                   <input required className={inputCls} value={imageForm.alt || ''} onChange={e => setImageForm({ ...imageForm, alt: e.target.value })} placeholder="e.g. Induction 2024" />
                 </FormField>
                 <ImageUploadField 
