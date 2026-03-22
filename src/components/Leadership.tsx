@@ -57,7 +57,7 @@ const Leadership = () => {
           <div className="mb-20">
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Executive Committee</h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {leadership.executive.map((member, index) => (
+              {[...leadership.executive].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((member, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, y: 20 }}
@@ -88,7 +88,7 @@ const Leadership = () => {
           <div className="mb-20">
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Chief Directors</h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {leadership.chief.map((member, index) => (
+              {[...(leadership.chief || [])].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((member, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, y: 20 }}
@@ -119,7 +119,7 @@ const Leadership = () => {
           <div>
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Board of Directors</h3>
             <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-              {leadership.board.map((member, index) => (
+              {[...leadership.board].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((member, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, y: 20 }}

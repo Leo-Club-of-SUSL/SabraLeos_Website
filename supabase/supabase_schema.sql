@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS leadership (
   role_type TEXT NOT NULL CHECK (role_type IN ('Executive', 'Board', 'Chief')),
   image_url TEXT NOT NULL,
   year TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- Create index for faster role_type filtering

@@ -18,6 +18,7 @@ interface DataContextType {
   addMember: (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board' | 'chief') => Promise<void>;
   updateMember: (member: LeadershipMember, type: 'executive' | 'board' | 'chief') => Promise<void>;
   deleteMember: (id: number, type: 'executive' | 'board' | 'chief') => Promise<void>;
+  bulkUpdateLeadership: (updates: { id: number; sort_order?: number }[]) => Promise<void>;
   addImage: (image: Omit<GalleryImage, 'id'>) => Promise<void>;
   updateImage: (id: number, image: Partial<GalleryImage>) => Promise<void>;
   deleteImage: (id: number) => Promise<void>;
@@ -169,6 +170,32 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const bulkUpdateLeadership = async (updates: { id: number; sort_order?: number }[]) => {
+    try {
+      // Optimistic update for instant UI feedback
+      setLeadership(prev => {
+        const newData = { ...prev };
+        (['executive', 'chief', 'board'] as const).forEach(type => {
+          newData[type] = newData[type].map(member => {
+            const update = updates.find(u => u.id === member.id);
+            if (update && update.sort_order !== undefined) {
+              return { ...member, sortOrder: update.sort_order };
+            }
+            return member;
+          });
+        });
+        return newData;
+      });
+
+      await leadershipAPI.bulkUpdate(updates);
+    } catch (err) {
+      console.error('Error bulk updating leadership:', err);
+      const freshData = await leadershipAPI.getAll();
+      setLeadership(freshData);
+      throw err;
+    }
+  };
+
   // Gallery Actions (now Supabase-backed)
   const addImage = async (image: Omit<GalleryImage, 'id'>) => {
     try {
@@ -304,6 +331,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       addMember,
       updateMember,
       deleteMember,
+      bulkUpdateLeadership,
       addImage,
       updateImage,
       deleteImage,

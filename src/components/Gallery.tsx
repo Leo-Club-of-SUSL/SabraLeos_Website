@@ -1,18 +1,21 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
+import { X } from 'lucide-react';
 
 const GALLERY_PAGE_SIZE = 12;
 
 interface GalleryProps {
   limit?: number;
   showButton?: boolean;
+  enableLightbox?: boolean;
 }
 
-const Gallery = ({ limit, showButton = false }: GalleryProps) => {
+const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryProps) => {
   const { gallery } = useData();
   const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // On home page (when limit is set), only show images marked for home display
   const homeGallery = limit ? gallery.filter(img => img.showOnHome) : gallery;
@@ -45,7 +48,8 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
-              className={`relative overflow-hidden rounded-xl group ${index === 0 || index === 3 ? 'md:col-span-2 md:row-span-2' : ''}`}
+              onClick={() => enableLightbox && setSelectedImage(img.src)}
+              className={`relative overflow-hidden rounded-xl group ${index === 0 || index === 3 ? 'md:col-span-2 md:row-span-2' : ''} ${enableLightbox ? 'cursor-pointer' : ''}`}
             >
               <img
                 src={img.src}
@@ -93,6 +97,36 @@ const Gallery = ({ limit, showButton = false }: GalleryProps) => {
         )}
 
       </div>
+
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedImage(null)}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 cursor-zoom-out"
+          >
+            <button 
+              className="absolute top-6 right-6 text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors z-10"
+              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+            >
+              <X size={28} />
+            </button>
+            <motion.img
+              key={selectedImage}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              src={selectedImage}
+              className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
+              alt="Enlarged gallery view"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };

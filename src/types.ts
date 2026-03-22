@@ -18,6 +18,7 @@ export interface LeadershipMemberDB {
     image_url: string;
     year: string;
     created_at: string;
+    sort_order?: number;
 }
 
 export interface SiteContentDB {
@@ -82,6 +83,7 @@ export interface LeadershipMember {
     image: string;
     type: 'executive' | 'board' | 'chief';
     year?: string;
+    sortOrder?: number;
 }
 
 export interface GalleryImage {

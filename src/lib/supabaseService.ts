@@ -40,6 +40,7 @@ const transformLeadershipFromDB = (dbMember: LeadershipMemberDB): LeadershipMemb
     image: dbMember.image_url,
     type: dbMember.role_type.toLowerCase() as 'executive' | 'board' | 'chief',
     year: dbMember.year,
+    sortOrder: dbMember.sort_order || 0,
 });
 
 /**
@@ -54,6 +55,7 @@ const transformLeadershipToDB = (
     role_type: roleType,
     image_url: member.image,
     year: member.year || new Date().getFullYear() + '/' + (new Date().getFullYear() + 1),
+    sort_order: member.sortOrder || 0,
 });
 
 /**
@@ -189,6 +191,7 @@ export const leadershipAPI = {
         const { data, error } = await supabase
             .from('leadership')
             .select('*')
+            .order('sort_order', { ascending: true })
             .order('created_at', { ascending: true });
 
         if (error) {
@@ -260,6 +263,22 @@ export const leadershipAPI = {
             throw error;
         }
     },
+
+    /**
+     * Bulk update leadership (e.g., for reordering sort priorities)
+     */
+    async bulkUpdate(updates: { id: number; sort_order?: number }[]): Promise<void> {
+        const promises = updates.map(u => 
+            supabase.from('leadership').update({ sort_order: u.sort_order }).eq('id', u.id)
+        );
+        const results = await Promise.all(promises);
+        const error = results.find(r => r.error)?.error;
+
+        if (error) {
+            console.error('Error bulk updating leadership:', error);
+            throw error;
+        }
+    }
 };
 
 // ============================================
