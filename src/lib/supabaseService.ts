@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Award, AwardDB, Project, LeadershipMember, GalleryImage, SiteContent, ProjectDB, LeadershipMemberDB, GalleryImageDB } from '../types';
+import type { Award, AwardDB, Project, LeadershipMember, LeadershipData, GalleryImage, SiteContent, ProjectDB, LeadershipMemberDB, GalleryImageDB, ContactMessage, ContactMessageDB } from '../types';
 
 // ============================================
 // Data Transformation Helpers
@@ -38,7 +38,7 @@ const transformLeadershipFromDB = (dbMember: LeadershipMemberDB): LeadershipMemb
     name: dbMember.name,
     position: dbMember.position,
     image: dbMember.image_url,
-    type: dbMember.role_type.toLowerCase() as 'executive' | 'board',
+    type: dbMember.role_type.toLowerCase() as 'executive' | 'board' | 'chief',
     year: dbMember.year,
 });
 
@@ -47,7 +47,7 @@ const transformLeadershipFromDB = (dbMember: LeadershipMemberDB): LeadershipMemb
  */
 const transformLeadershipToDB = (
     member: Omit<LeadershipMember, 'id'>,
-    roleType: 'Executive' | 'Board'
+    roleType: 'Executive' | 'Board' | 'Chief'
 ): Omit<LeadershipMemberDB, 'id' | 'created_at'> => ({
     name: member.name,
     position: member.position,
@@ -185,7 +185,7 @@ export const leadershipAPI = {
     /**
      * Fetch all leadership members from Supabase
      */
-    async getAll(): Promise<{ executive: LeadershipMember[]; board: LeadershipMember[] }> {
+    async getAll(): Promise<LeadershipData> {
         const { data, error } = await supabase
             .from('leadership')
             .select('*')
@@ -200,6 +200,7 @@ export const leadershipAPI = {
 
         return {
             executive: members.filter(m => m.type === 'executive'),
+            chief: members.filter(m => m.type === 'chief'),
             board: members.filter(m => m.type === 'board'),
         };
     },
@@ -207,7 +208,7 @@ export const leadershipAPI = {
     /**
      * Create a new leadership member
      */
-    async create(member: Omit<LeadershipMember, 'id'>, roleType: 'Executive' | 'Board'): Promise<LeadershipMember> {
+    async create(member: Omit<LeadershipMember, 'id'>, roleType: 'Executive' | 'Board' | 'Chief'): Promise<LeadershipMember> {
         const dbMember = transformLeadershipToDB(member, roleType);
 
         const { data, error } = await supabase
@@ -227,7 +228,7 @@ export const leadershipAPI = {
     /**
      * Update an existing leadership member
      */
-    async update(id: number, member: Partial<LeadershipMember>, roleType: 'Executive' | 'Board'): Promise<LeadershipMember> {
+    async update(id: number, member: Partial<LeadershipMember>, roleType: 'Executive' | 'Board' | 'Chief'): Promise<LeadershipMember> {
         const dbMember = transformLeadershipToDB(member as Omit<LeadershipMember, 'id'>, roleType);
 
         const { data, error } = await supabase
@@ -518,6 +519,77 @@ export const awardsAPI = {
 
         if (error) {
             console.error('Error deleting award:', error);
+            throw error;
+        }
+    },
+};
+
+// ============================================
+// Messages API
+// ============================================
+
+/**
+ * Transform database contact message to frontend format
+ */
+const transformMessageFromDB = (dbMessage: ContactMessageDB): ContactMessage => ({
+    id: dbMessage.id,
+    name: dbMessage.name,
+    email: dbMessage.email,
+    message: dbMessage.message,
+    createdAt: dbMessage.created_at,
+});
+
+export const messagesAPI = {
+    /**
+     * Submit a contact form message
+     */
+    async create(message: Omit<ContactMessage, 'id' | 'createdAt'>): Promise<ContactMessage> {
+        const { data, error } = await supabase
+            .from('contact_messages')
+            .insert([{
+                name: message.name,
+                email: message.email,
+                message: message.message
+            }])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error submitting message:', error);
+            throw error;
+        }
+
+        return transformMessageFromDB(data);
+    },
+
+    /**
+     * Fetch all messages (for admin dashboard)
+     */
+    async getAll(): Promise<ContactMessage[]> {
+        const { data, error } = await supabase
+            .from('contact_messages')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching messages:', error);
+            throw error;
+        }
+
+        return (data || []).map(transformMessageFromDB);
+    },
+
+    /**
+     * Delete a message
+     */
+    async delete(id: number): Promise<void> {
+        const { error } = await supabase
+            .from('contact_messages')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting message:', error);
             throw error;
         }
     },

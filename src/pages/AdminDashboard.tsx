@@ -7,6 +7,8 @@ import {
   BarChart3
 } from 'lucide-react';
 
+import { messagesAPI } from '../lib/supabaseService';
+
 import AnalyticsWidget from '../components/admin/AnalyticsWidget';
 
 
@@ -23,7 +25,7 @@ import { imageService } from '../lib/imageService';
 import type { SecurityLog } from '../lib/securityService';
 import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
 
-type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'security' | 'analytics';
+type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'messages' | 'security' | 'analytics';
 
 // ================================================================
 // Tab Config
@@ -35,6 +37,7 @@ const TAB_CONFIG: { key: TabType; label: string; icon: any; color: string }[] = 
   { key: 'gallery', label: 'Gallery', icon: Image, color: 'text-gray-400' },
   { key: 'awards', label: 'Awards', icon: Trophy, color: 'text-gray-400' },
   { key: 'content', label: 'Content', icon: Settings, color: 'text-gray-400' },
+  { key: 'messages', label: 'Messages', icon: Mail, color: 'text-gray-400' },
   { key: 'security', label: 'Security', icon: Shield, color: 'text-gray-400' },
 ];
 
@@ -119,6 +122,10 @@ const AdminDashboard = () => {
   const [alertEmail, setAlertEmail] = useState('');
   const [alertEmailSaving, setAlertEmailSaving] = useState(false);
 
+  // Messages state
+  const [messages, setMessages] = useState<any[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean; title: string; message: string; onConfirm: () => void;
@@ -168,7 +175,7 @@ const AdminDashboard = () => {
   };
 
 
-  const handleDeleteClick = (item: any, type?: 'executive' | 'board') => {
+  const handleDeleteClick = (item: any, type?: 'executive' | 'board' | 'chief') => {
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Item',
@@ -190,6 +197,10 @@ const AdminDashboard = () => {
           if (activeTab === 'leadership' && type) await deleteMember(item.id, type);
           if (activeTab === 'gallery') await deleteImage(item.id);
           if (activeTab === 'awards') await deleteAward(item.id);
+          if (activeTab === 'messages') {
+            await messagesAPI.delete(item.id);
+            fetchMessages();
+          }
           showToast('Item deleted successfully', 'success');
         } catch (err) { 
           console.error(err);
@@ -279,7 +290,7 @@ const AdminDashboard = () => {
         editingItem ? await updateProject(finalForm as Project) : await addProject(finalForm as Omit<Project, 'id'>);
       } else if (activeTab === 'leadership') {
         const finalForm = { ...memberForm, image: currentImageUrl };
-        const t = memberForm.type as 'executive' | 'board';
+        const t = memberForm.type as 'executive' | 'board' | 'chief';
         editingItem ? await updateMember(finalForm as LeadershipMember, t) : await addMember(finalForm as Omit<LeadershipMember, 'id'>, t);
       } else if (activeTab === 'gallery') {
         // Force new images to Library
@@ -392,13 +403,31 @@ const AdminDashboard = () => {
 
   const handleSignOut = async () => { await signOut(); navigate('/admin', { replace: true }); };
 
+  // Message handlers
+  const fetchMessages = async () => {
+    setMessagesLoading(true);
+    try {
+      const data = await messagesAPI.getAll();
+      setMessages(data);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to load messages', 'error');
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     if (tab === 'content') initContentForm(contentSection);
     if (tab === 'security') { fetchSecurityLogs(); setAlertEmail(siteContent['alert_email'] || ''); }
+    if (tab === 'messages') fetchMessages();
   };
 
-  useEffect(() => { if (activeTab === 'security') setAlertEmail(siteContent['alert_email'] || ''); }, [siteContent, activeTab]);
+  useEffect(() => { 
+    if (activeTab === 'security') setAlertEmail(siteContent['alert_email'] || ''); 
+    if (activeTab === 'messages') fetchMessages();
+  }, [siteContent, activeTab]);
 
   // Counts
   const getTabCount = (tab: TabType) => {
@@ -406,6 +435,7 @@ const AdminDashboard = () => {
     if (tab === 'leadership') return leadership.executive.length + leadership.board.length;
     if (tab === 'gallery') return gallery.length;
     if (tab === 'awards') return awards.length;
+    if (tab === 'messages') return messages.length;
     return null;
   };
 
@@ -513,7 +543,7 @@ const AdminDashboard = () => {
           <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-3">
             <div>
               <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-                {activeTab === 'analytics' ? 'Website Insights' : activeTab === 'content' ? 'Site Content' : activeTab === 'security' ? 'Security Center' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management`}
+                {activeTab === 'analytics' ? 'Website Insights' : activeTab === 'content' ? 'Site Content' : activeTab === 'security' ? 'Security Center' : activeTab === 'messages' ? 'Contact Messages' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management`}
               </h2>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 {activeTab === 'analytics' && 'Website traffic and visitor insights'}
@@ -522,6 +552,7 @@ const AdminDashboard = () => {
                 {activeTab === 'gallery' && 'Upload and organize gallery images'}
                 {activeTab === 'awards' && 'Manage club awards and milestones'}
                 {activeTab === 'content' && 'Edit website text and settings'}
+                {activeTab === 'messages' && 'View and manage contact form submissions'}
                 {activeTab === 'security' && 'Monitor login activity and alerts'}
               </p>
             </div>
@@ -576,16 +607,18 @@ const AdminDashboard = () => {
             {/* ──── LEADERSHIP TAB ──── */}
             {activeTab === 'leadership' && (
               <div className="space-y-8">
-                {(['executive', 'board'] as const).map(groupType => {
-                  const members = leadership[groupType];
+                {(['executive', 'chief', 'board'] as const).map(groupType => {
+                  const items = leadership[groupType];
                   return (
                     <div key={groupType}>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">{groupType === 'executive' ? 'Executive Committee' : 'Board of Directors'}</h3>
-                      {members.length === 0 ? (
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+                        {groupType === 'executive' ? 'Executive Committee' : groupType === 'chief' ? 'Chief Directors' : 'Board of Directors'}
+                      </h3>
+                      {items.length === 0 ? (
                         <p className="text-gray-400 text-sm py-4">No members added yet.</p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {members.map(member => (
+                          {items.map(member => (
                             <div key={member.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors group">
                               <img src={member.image} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" />
                               <div className="flex-1 min-w-0">
@@ -859,6 +892,51 @@ const AdminDashboard = () => {
                 </div>
               </div>
             )}
+
+            {/* ──── MESSAGES TAB ──── */}
+            {activeTab === 'messages' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center mb-2">
+                   <h3 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2"><Mail size={16} /> Recent Submissions</h3>
+                   <button onClick={fetchMessages} disabled={messagesLoading} className="text-xs text-[var(--color-leo-maroon)] hover:underline flex items-center gap-1 disabled:opacity-50">
+                      <RefreshCw size={12} className={messagesLoading ? 'animate-spin' : ''} /> Refresh
+                   </button>
+                </div>
+
+                {messagesLoading && !messages.length ? (
+                  <div className="text-center py-12 text-gray-400"><Loader2 size={24} className="animate-spin mx-auto mb-2" />Loading messages...</div>
+                ) : messages.length === 0 ? (
+                  <EmptyState icon={Mail} text="No messages yet" sub="Contact form submissions will appear here" />
+                ) : (
+                  <div className="grid gap-4">
+                    {messages.map(msg => (
+                      <div key={msg.id} className="p-5 rounded-2xl border border-gray-100 dark:border-slate-700 bg-gray-50/30 dark:bg-slate-700/10 hover:border-gray-200 dark:hover:border-slate-600 transition-all group relative">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-[var(--color-leo-maroon)] text-white flex items-center justify-center font-bold">
+                              {msg.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-800 dark:text-white text-sm">{msg.name}</h4>
+                              <p className="text-xs text-gray-400 font-medium">{msg.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(msg.createdAt).toLocaleDateString()}</span>
+                            <button onClick={() => handleDeleteClick(msg)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="bg-white/50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed shadow-inner">
+                          {msg.message}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -902,7 +980,9 @@ const AdminDashboard = () => {
                 <FormField label="Position"><input required className={inputCls} value={memberForm.position || ''} onChange={e => setMemberForm({ ...memberForm, position: e.target.value })} /></FormField>
                 <FormField label="Type">
                   <select className={inputCls} value={memberForm.type} onChange={e => setMemberForm({ ...memberForm, type: e.target.value as any })}>
-                    <option value="executive">Executive Committee</option><option value="board">Board of Directors</option>
+                    <option value="executive">Executive Committee</option>
+                    <option value="chief">Chief Director</option>
+                    <option value="board">Board of Director</option>
                   </select>
                 </FormField>
                 <ImageUploadField 

@@ -15,9 +15,9 @@ interface DataContextType {
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
   updateProject: (project: Project) => Promise<void>;
   deleteProject: (id: number) => Promise<void>;
-  addMember: (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board') => Promise<void>;
-  updateMember: (member: LeadershipMember, type: 'executive' | 'board') => Promise<void>;
-  deleteMember: (id: number, type: 'executive' | 'board') => Promise<void>;
+  addMember: (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board' | 'chief') => Promise<void>;
+  updateMember: (member: LeadershipMember, type: 'executive' | 'board' | 'chief') => Promise<void>;
+  deleteMember: (id: number, type: 'executive' | 'board' | 'chief') => Promise<void>;
   addImage: (image: Omit<GalleryImage, 'id'>) => Promise<void>;
   updateImage: (id: number, image: Partial<GalleryImage>) => Promise<void>;
   deleteImage: (id: number) => Promise<void>;
@@ -35,7 +35,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [leadership, setLeadership] = useState<LeadershipData>({ executive: [], board: [] });
+  const [leadership, setLeadership] = useState<LeadershipData>({ executive: [], chief: [], board: [] });
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [awards, setAwards] = useState<Award[]>([]);
   const [siteContent, setSiteContent] = useState<SiteContent>(DEFAULT_SITE_CONTENT);
@@ -125,9 +125,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Leadership Actions
-  const addMember = async (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board') => {
+  const addMember = async (member: Omit<LeadershipMember, 'id'>, type: 'executive' | 'board' | 'chief') => {
     try {
-      const roleType = type === 'executive' ? 'Executive' : 'Board';
+      const roleType = type === 'executive' ? 'Executive' : type === 'chief' ? 'Chief' : 'Board';
       const newMember = await leadershipAPI.create(member, roleType);
 
       setLeadership(prev => ({
@@ -140,9 +140,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateMember = async (updatedMember: LeadershipMember, type: 'executive' | 'board') => {
+  const updateMember = async (updatedMember: LeadershipMember, type: 'executive' | 'board' | 'chief') => {
     try {
-      const roleType = type === 'executive' ? 'Executive' : 'Board';
+      const roleType = type === 'executive' ? 'Executive' : type === 'chief' ? 'Chief' : 'Board';
       const updated = await leadershipAPI.update(updatedMember.id, updatedMember, roleType);
 
       setLeadership(prev => ({
@@ -155,7 +155,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const deleteMember = async (id: number, type: 'executive' | 'board') => {
+  const deleteMember = async (id: number, type: 'executive' | 'board' | 'chief') => {
     try {
       await leadershipAPI.delete(id);
 

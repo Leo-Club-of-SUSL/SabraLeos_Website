@@ -14,7 +14,7 @@ export interface LeadershipMemberDB {
     id: number;
     name: string;
     position: string;
-    role_type: 'Executive' | 'Board';
+    role_type: 'Executive' | 'Board' | 'Chief';
     image_url: string;
     year: string;
     created_at: string;
@@ -46,6 +46,22 @@ export interface AwardDB {
     created_at: string;
 }
 
+export interface ContactMessageDB {
+    id: number;
+    name: string;
+    email: string;
+    message: string;
+    created_at: string;
+}
+
+export interface ContactMessage {
+    id: number;
+    name: string;
+    email: string;
+    message: string;
+    createdAt: string;
+}
+
 // Frontend types (for component usage)
 export interface Project {
     id: number;
@@ -64,7 +80,7 @@ export interface LeadershipMember {
     name: string;
     position: string;
     image: string;
-    type: 'executive' | 'board';
+    type: 'executive' | 'board' | 'chief';
     year?: string;
 }
 
@@ -86,6 +102,7 @@ export interface Award {
 
 export interface LeadershipData {
     executive: LeadershipMember[];
+    chief: LeadershipMember[];
     board: LeadershipMember[];
 }
 

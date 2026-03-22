@@ -53,62 +53,97 @@ const Leadership = () => {
         </motion.div>
 
         {/* Executive Committee */}
-        <div className="mb-20">
-          <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Executive Committee</h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {leadership.executive.map((member, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="text-center group"
-              >
-                <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-lg group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
-                  <img
-                    src={member.image}
-                    alt={member.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
-                  />
-                </div>
-                <h4 className="text-xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]">{member.name}</h4>
-                <p className="text-gray-500 dark:text-gray-400 font-medium">{member.position}</p>
-              </motion.div>
-            ))}
+        {leadership.executive.length > 0 && (
+          <div className="mb-20">
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Executive Committee</h3>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {leadership.executive.map((member, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="text-center group"
+                >
+                  <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-lg group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
+                    <img
+                      src={member.image}
+                      alt={member.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                    />
+                  </div>
+                  <h4 className="text-xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]">{member.name}</h4>
+                  <p className="text-gray-500 dark:text-gray-400 font-medium">{member.position}</p>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Chief Directors */}
+        {leadership.chief && leadership.chief.length > 0 && (
+          <div className="mb-20">
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Chief Directors</h3>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {leadership.chief.map((member, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="text-center group"
+                >
+                  <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-lg group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
+                    <img
+                      src={member.image}
+                      alt={member.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                    />
+                  </div>
+                  <h4 className="text-xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]">{member.name}</h4>
+                  <p className="text-gray-500 dark:text-gray-400 font-medium">{member.position}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Board of Directors */}
-        <div>
-          <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Board of Directors</h3>
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {leadership.board.map((member, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="text-center group"
-              >
-                <div className="relative w-40 h-40 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-md group-hover:border-[var(--color-leo-maroon)] dark:group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
-                  <img
-                    src={member.image}
-                    alt={member.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
-                  />
-                </div>
-                <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200">{member.name}</h4>
-                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{member.position}</p>
-              </motion.div>
-            ))}
+        {leadership.board.length > 0 && (
+          <div>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Board of Directors</h3>
+            <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+              {leadership.board.map((member, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="text-center group"
+                >
+                  <div className="relative w-40 h-40 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-md group-hover:border-[var(--color-leo-maroon)] dark:group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
+                    <img
+                      src={member.image}
+                      alt={member.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                    />
+                  </div>
+                  <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200">{member.name}</h4>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{member.position}</p>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );
