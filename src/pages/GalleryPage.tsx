@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Gallery from '../components/Gallery';
 import Footer from '../components/Footer';
@@ -8,6 +9,9 @@ import Footer from '../components/Footer';
 const GalleryPage = () => {
     const SITE_URL = "https://sabraleos.org";
 
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     return (
         <div className="flex flex-col min-h-screen">
