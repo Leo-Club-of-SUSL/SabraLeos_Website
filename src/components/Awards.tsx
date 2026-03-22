@@ -1,9 +1,20 @@
 import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
 import { Loader2, Trophy } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 const Awards = () => {
   const { awards, loading } = useData();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const handleScroll = () => {
+    if (!containerRef.current) return;
+    const { scrollLeft } = containerRef.current;
+    // Each item is w-64 (256px) + gap-8 (32px) = 288px per snap point
+    const newIndex = Math.round(scrollLeft / 288);
+    setActiveIndex(newIndex < awards.length ? newIndex : awards.length - 1);
+  };
 
   if (loading && awards.length === 0) {
     return (
@@ -38,7 +49,9 @@ const Awards = () => {
 
         <div className="relative">
           <motion.div 
-            className="flex gap-8 overflow-x-auto pb-8 snap-x no-scrollbar"
+            ref={containerRef}
+            onScroll={handleScroll}
+            className={`flex gap-8 overflow-x-auto pb-8 snap-x no-scrollbar px-4 ${awards.length <= 4 ? 'lg:justify-center' : ''}`}
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -88,11 +101,16 @@ const Awards = () => {
           <div className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-gray-50 dark:from-slate-900 pointer-events-none opacity-50"></div>
         </div>
 
-        <div className="mt-12 flex justify-center gap-2">
-            <div className="h-1.5 w-8 bg-[var(--color-leo-maroon)] rounded-full"></div>
-            <div className="h-1.5 w-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-            <div className="h-1.5 w-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-        </div>
+        {awards.length > 3 && (
+          <div className="mt-12 flex justify-center gap-2 flex-wrap max-w-sm mx-auto">
+              {awards.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-1.5 rounded-full transition-all duration-300 ${activeIndex === i ? 'w-8 bg-[var(--color-leo-maroon)] dark:bg-[var(--color-leo-gold)]' : 'w-1.5 bg-gray-300 dark:bg-gray-700'}`}
+                ></div>
+              ))}
+          </div>
+        )}
       </div>
 
       <style>{`
