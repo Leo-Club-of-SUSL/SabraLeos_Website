@@ -17,8 +17,9 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
   const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  // On home page (when limit is set), only show images marked for home display
-  const homeGallery = limit ? gallery.filter(img => img.showOnHome) : gallery;
+  // Sort by id descending so the latest uploaded images appear at the top
+  const sortedGallery = [...gallery].sort((a, b) => b.id - a.id);
+  const homeGallery = limit ? sortedGallery.filter(img => img.showOnHome) : sortedGallery;
   const displayedGallery = limit
     ? homeGallery.slice(0, limit)
     : homeGallery.slice(0, visibleCount);
