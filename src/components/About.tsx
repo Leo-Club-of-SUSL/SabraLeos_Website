@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Target, Eye, History, Heart } from 'lucide-react';
+import { Target, Eye, History, Compass } from 'lucide-react';
 
 const About = () => {
   const { siteContent } = useData();
@@ -57,7 +57,7 @@ const About = () => {
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
             {/* Abstract pattern could go here */}
           </div>
-          <Heart className="w-16 h-16 mx-auto mb-6 text-[var(--color-leo-gold)]" />
+          <Compass className="w-16 h-16 mx-auto mb-6 text-[var(--color-leo-gold)]" />
           <h3 className="text-3xl font-bold mb-6">Our Core Values</h3>
           <p className="text-lg md:text-xl max-w-3xl mx-auto text-red-100">
             {siteContent.about_values}
