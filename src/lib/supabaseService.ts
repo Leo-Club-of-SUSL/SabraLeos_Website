@@ -275,8 +275,8 @@ export const leadershipAPI = {
      * Bulk update leadership (e.g., for reordering sort priorities)
      */
     async bulkUpdate(updates: { id: number; sort_order?: number }[]): Promise<void> {
-        const promises = updates.map(u => 
-            supabase.from('leadership').update({ sort_order: u.sort_order }).eq('id', u.id)
+        const promises = updates.map(({ id, ...rest }) => 
+            supabase.from('leadership').update(rest).eq('id', id)
         );
         const results = await Promise.all(promises);
         const error = results.find(r => r.error)?.error;
@@ -450,11 +450,11 @@ export const galleryAPI = {
      * Bulk update multiple gallery images (useful for reordering)
      */
     async bulkUpdate(updates: { id: number; show_on_home?: boolean; sort_order?: number }[]): Promise<void> {
-        const promises = updates.map(update => 
+        const promises = updates.map(({ id, ...rest }) => 
             supabase
                 .from('gallery')
-                .update(update)
-                .eq('id', update.id)
+                .update(rest)
+                .eq('id', id)
         );
 
         const results = await Promise.all(promises);
