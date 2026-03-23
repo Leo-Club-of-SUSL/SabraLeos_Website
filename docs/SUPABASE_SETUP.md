@@ -21,7 +21,7 @@ This guide will help you set up Supabase for the Leo Club website.
 
 1. In your Supabase project, go to the **SQL Editor** (left sidebar)
 2. Click "New Query"
-3. Copy the entire contents of `supabase_schema.sql` from the project root
+3. Copy the entire contents of `supabase/supabase_schema.sql`
 4. Paste it into the SQL editor
 5. Click "Run" to execute the schema
 
@@ -61,25 +61,19 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
    - You can add/edit/delete items from the Admin Dashboard
 
 ## Database Structure
+The project uses several tables to manage different types of content:
 
-### Projects Table
-- `id`: Auto-incrementing primary key
-- `title`: Project name
-- `category`: 'Completed', 'Ongoing', or 'Upcoming'
-- `description`: Project details
-- `image_url`: URL to project image
-- `project_date`: Date of the project
-- `recruitment_link`: Google Form link for upcoming projects
-- `created_at`: Timestamp
+### Core Content
+- `projects`: Main club projects and activities.
+- `leadership`: Club advisors, executive committee, board of directors, and past presidents.
+- `gallery`: Photos and captions for the photo library and home page feed.
+- `awards`: Recognitions and milestones.
+- `site_content`: Dynamic strings used throughout the site (Hero titles, contact info, etc.).
 
-### Leadership Table
-- `id`: Auto-incrementing primary key
-- `name`: Member name
-- `position`: Role/position
-- `role_type`: 'Executive' or 'Board'
-- `image_url`: URL to member photo
-- `year`: Academic year (e.g., '2024/2025')
-- `created_at`: Timestamp
+### User Interactions & Logs
+- `contact_messages`: Submitted messages from the contact form.
+- `security_logs`: Audit trail for security events (login attempts, detected attacks).
+- `content_logs`: Audit trail for content modifications in the admin dashboard.
 
 ## Security Notes
 
