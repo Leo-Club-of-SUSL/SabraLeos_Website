@@ -497,7 +497,10 @@ const AdminDashboard = () => {
   // Counts
   const getTabCount = (tab: TabType) => {
     if (tab === 'projects') return projects.length;
-    if (tab === 'leadership') return leadership.executive.length + leadership.board.length;
+    if (tab === 'leadership') {
+      const { advisor, executive, chief, board, pastPresidents } = leadership;
+      return (advisor ? 1 : 0) + executive.length + chief.length + board.length + pastPresidents.length;
+    }
     if (tab === 'gallery') return gallery.length;
     if (tab === 'awards') return awards.length;
     if (tab === 'messages') return messages.length;

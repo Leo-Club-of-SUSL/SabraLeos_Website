@@ -42,8 +42,12 @@ graph TD
     ClientCompress -->|Upload| Cloudinary[Cloudinary API]
     ClientCompress -->|Upload| SupaStore[Supabase Storage]
     
-    SupaDB -->|Trigger| EdgeFunc[Supabase Edge Functions]
-    EdgeFunc -->|Email| SecurityAlert[Security Notification]
+    %% Analytics Flow
+    NetlifyFunction[Netlify Serverless Function] -->|Fetch| GA_API[Google Analytics Data API]
+    ReactApp -->|Query| NetlifyFunction
+    
+    %% Automation
+    ScheduledFunction[Netlify Scheduled Function] -->|Ping| SupaDB
 ```
 
 ---
@@ -67,6 +71,7 @@ We use a dual-storage strategy to balance performance and management:
 ## 6. Optimization Techniques
 - **Code Splitting**: Routes are lazily loaded using `React.lazy()` and `Suspense`, ensuring the initial bundle stays small.
 - **Client-Side Compression**: Images are compressed on the user's device before upload using `browser-image-compression` to stay within free-tier storage limits.
+- **Database Keep-Alive**: A Netlify Scheduled Function (`netlify/functions/keep-alive.mts`) pings the database every 3 days to prevent Supabase from pausing the project on the free tier.
 - **Responsive Design**: Mobile-first approach using Tailwind's breakpoint system.
 - **SEO & Accessibility**: 
     - `react-helmet-async` for dynamic meta tags.

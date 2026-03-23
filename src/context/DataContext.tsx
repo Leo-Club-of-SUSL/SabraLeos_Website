@@ -199,14 +199,29 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const roleType = roleTypeMap[type];
       const updated = await leadershipAPI.update(updatedMember.id, updatedMember, roleType);
 
+      // Handle category change or update
       setLeadership(prev => {
-        if (type === 'advisor') return { ...prev, advisor: updated };
-        const key = type === 'past_president' ? 'pastPresidents' : type;
-        const list = prev[key as keyof LeadershipData] as LeadershipMember[];
-        return {
+        // 1. Remove member from current slot (wherever they are)
+        const cleaned: LeadershipData = {
           ...prev,
-          [key]: list.map(m => m.id === updated.id ? updated : m)
+          advisor: prev.advisor?.id === updated.id ? undefined : prev.advisor,
+          executive: prev.executive.filter(m => m.id !== updated.id),
+          chief: prev.chief.filter(m => m.id !== updated.id),
+          board: prev.board.filter(m => m.id !== updated.id),
+          pastPresidents: prev.pastPresidents.filter(m => m.id !== updated.id),
         };
+
+        // 2. Add member to their NEW designated slot
+        if (type === 'advisor') {
+          return { ...cleaned, advisor: updated };
+        } else {
+          const key = type === 'past_president' ? 'pastPresidents' : type;
+          const list = cleaned[key as keyof LeadershipData] as LeadershipMember[];
+          return {
+            ...cleaned,
+            [key]: [...list, updated].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+          };
+        }
       });
       await logAction('updated', 'leadership', `Updated ${type} member: ${updatedMember.name}`);
     } catch (err) {
@@ -217,19 +232,32 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteMember = async (id: number, type: 'executive' | 'board' | 'chief' | 'advisor' | 'past_president') => {
     try {
-      const key = type === 'past_president' ? 'pastPresidents' : (type === 'advisor' ? 'advisor' : type);
-      const memberToDelete = type === 'advisor' ? leadership.advisor : (leadership[key as keyof LeadershipData] as LeadershipMember[]).find(m => m.id === id);
-      
+      // Find the member for logging before deleting
+      const findMember = () => {
+        if (leadership.advisor?.id === id) return leadership.advisor;
+        const listsToSearch: (keyof LeadershipData)[] = ['executive', 'chief', 'board', 'pastPresidents'];
+        for (const listKey of listsToSearch) {
+          const m = (leadership[listKey] as LeadershipMember[]).find(em => em.id === id);
+          if (m) return m;
+        }
+        return null;
+      };
+
+      const memberToDelete = findMember();
       await leadershipAPI.delete(id);
 
       setLeadership(prev => {
-        if (type === 'advisor') return { ...prev, advisor: undefined };
-        const list = prev[key as keyof LeadershipData] as LeadershipMember[];
-        return {
+        const newData: LeadershipData = {
           ...prev,
-          [key]: list.filter(m => m.id !== id)
+          advisor: prev.advisor?.id === id ? undefined : prev.advisor,
+          executive: prev.executive.filter(m => m.id !== id),
+          chief: prev.chief.filter(m => m.id !== id),
+          board: prev.board.filter(m => m.id !== id),
+          pastPresidents: prev.pastPresidents.filter(m => m.id !== id),
         };
+        return newData;
       });
+
       if (memberToDelete) {
         await logAction('deleted', 'leadership', `Deleted ${type} member: ${memberToDelete.name}`);
       }

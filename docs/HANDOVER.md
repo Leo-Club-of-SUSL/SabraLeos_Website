@@ -85,6 +85,7 @@ You need the following keys in your `.env` file for the app to function:
   /lib            # Shared services (Supabase client, Security, Cloudinary upload)
   /pages          # Main page components (Home, Gallery, AdminDashboard)
   /types.ts       # Global TypeScript interfaces
+/netlify/functions # Serverless functions (Analytics, Keep-Alive)
 /public           # Static assets (favicons, robots.txt, sitemap.xml)
 /supabase         # Database schema and RLS policies
 ```
@@ -100,7 +101,9 @@ The database is hosted on **Supabase** (Postgres).
 - `site_content`: A Key-Value store allowing admins to change homepage text/links.
 - `gallery`: Registry of images visible in the photo library and home feed.
 - `awards`: Recognition received by the club.
-- `security_logs`: Audit trail for login attempts and administrative actions.
+- `security_logs`: Audit trail for login attempts and brute-force detections.
+- `content_logs`: Records of administrative actions (Added/Updated/Deleted items).
+- `contact_messages`: Stores submissions from the website's contact form.
 
 ### 🛡 Row Level Security (RLS)
 We use RLS to ensure data integrity:
@@ -164,6 +167,7 @@ If a push to `main` breaks the site:
 
 ## 12. Known Limitations & Future Improvements
 - **Supabase/Cloudinary Free Tiers**: Keep an eye on usage. We currently use `browser-image-compression` on the client side to keep file sizes under **300KB** and preserve our free-tier quotas.
+- **Supabase Pausing**: Free tier Supabase projects pause after a week of inactivity. We have implemented a **Netlify Scheduled Function** that pings the database every 3 days to keep the project active automatically.
 - **Future Goals**:
   - Integrate a **KPI System** for member performance tracking.
   - Interactive **Member Portal** for Leo-only resources.
@@ -174,7 +178,7 @@ If a push to `main` breaks the site:
 ## 13. Emergency & Support
 - **Site is down?**: Check [Netlify Status](https://www.netlifystatus.com/) and [Supabase Status](https://status.supabase.com/).
 - **Lost Admin Access?**: Use the Supabase Dashboard to reset passwords or create a new user.
-- **Supabase Paused?**: Free tier projects pause after 1 week of inactivity. Simply log into the Supabase dashboard and click "Restore Project".
+- **Supabase Paused?**: If the automation fails and the project pauses, log into the Supabase dashboard and click "Restore Project". The website will be functional again within minutes.
 
 ### 📚 Official Docs:
 - [Supabase Documentation](https://supabase.com/docs)
