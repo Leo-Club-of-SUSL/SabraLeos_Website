@@ -1,5 +1,5 @@
-import { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect, lazy, Suspense, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import ReactGA from 'react-ga4';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider } from './context/DataContext';
@@ -27,13 +27,34 @@ const PageViewTracker = () => {
   return null;
 };
 
+// Hidden Admin Shortcut Handler
+const KeyboardNavigator = () => {
+  const navigate = useNavigate();
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ctrl + Shift + A
+    if (e.ctrlKey && e.shiftKey && e.key.toUpperCase() === 'A') {
+      e.preventDefault();
+      navigate('/admin');
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  return null;
+};
+
 function App() {
   return (
     <ThemeProvider>
-      <DataProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <DataProvider>
           <ToastProvider>
             <Router>
+              <KeyboardNavigator />
               <PageViewTracker />
               <main id="app-content">
                 <Suspense fallback={
@@ -61,8 +82,8 @@ function App() {
 
             </Router>
           </ToastProvider>
+          </DataProvider>
         </AuthProvider>
-      </DataProvider>
     </ThemeProvider>
   );
 }

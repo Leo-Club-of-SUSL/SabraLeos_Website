@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Award, AwardDB, Project, LeadershipMember, LeadershipData, GalleryImage, SiteContent, ProjectDB, LeadershipMemberDB, GalleryImageDB, ContactMessage, ContactMessageDB } from '../types';
+import type { Award, AwardDB, Project, LeadershipMember, LeadershipData, GalleryImage, SiteContent, ProjectDB, LeadershipMemberDB, GalleryImageDB, ContactMessage, ContactMessageDB, ContentLog, ContentLogDB } from '../types';
 
 // ============================================
 // Data Transformation Helpers
@@ -38,8 +38,12 @@ const transformLeadershipFromDB = (dbMember: LeadershipMemberDB): LeadershipMemb
     name: dbMember.name,
     position: dbMember.position,
     image: dbMember.image_url,
-    type: dbMember.role_type.toLowerCase() as 'executive' | 'board' | 'chief',
+    type: (() => {
+        if (dbMember.role_type === 'PastPresident') return 'past_president';
+        return dbMember.role_type.toLowerCase() as any;
+    })(),
     year: dbMember.year,
+    serviceYear: dbMember.service_year,
     sortOrder: dbMember.sort_order || 0,
 });
 
@@ -48,13 +52,14 @@ const transformLeadershipFromDB = (dbMember: LeadershipMemberDB): LeadershipMemb
  */
 const transformLeadershipToDB = (
     member: Omit<LeadershipMember, 'id'>,
-    roleType: 'Executive' | 'Board' | 'Chief'
+    roleType: 'Executive' | 'Board' | 'Chief' | 'Advisor' | 'PastPresident'
 ): Omit<LeadershipMemberDB, 'id' | 'created_at'> => ({
     name: member.name,
     position: member.position,
     role_type: roleType,
     image_url: member.image,
     year: member.year || new Date().getFullYear() + '/' + (new Date().getFullYear() + 1),
+    service_year: member.serviceYear,
     sort_order: member.sortOrder || 0,
 });
 
@@ -202,16 +207,18 @@ export const leadershipAPI = {
         const members = (data || []).map(transformLeadershipFromDB);
 
         return {
+            advisor: members.find(m => m.type === 'advisor'),
             executive: members.filter(m => m.type === 'executive'),
             chief: members.filter(m => m.type === 'chief'),
             board: members.filter(m => m.type === 'board'),
+            pastPresidents: members.filter(m => m.type === 'past_president'),
         };
     },
 
     /**
      * Create a new leadership member
      */
-    async create(member: Omit<LeadershipMember, 'id'>, roleType: 'Executive' | 'Board' | 'Chief'): Promise<LeadershipMember> {
+    async create(member: Omit<LeadershipMember, 'id'>, roleType: 'Executive' | 'Board' | 'Chief' | 'Advisor' | 'PastPresident'): Promise<LeadershipMember> {
         const dbMember = transformLeadershipToDB(member, roleType);
 
         const { data, error } = await supabase
@@ -231,7 +238,7 @@ export const leadershipAPI = {
     /**
      * Update an existing leadership member
      */
-    async update(id: number, member: Partial<LeadershipMember>, roleType: 'Executive' | 'Board' | 'Chief'): Promise<LeadershipMember> {
+    async update(id: number, member: Partial<LeadershipMember>, roleType: 'Executive' | 'Board' | 'Chief' | 'Advisor' | 'PastPresident'): Promise<LeadershipMember> {
         const dbMember = transformLeadershipToDB(member as Omit<LeadershipMember, 'id'>, roleType);
 
         const { data, error } = await supabase
@@ -610,6 +617,61 @@ export const messagesAPI = {
         if (error) {
             console.error('Error deleting message:', error);
             throw error;
+        }
+    },
+};
+
+// ============================================
+// Content Logs API
+// ============================================
+
+/**
+ * Transform database content log to frontend format
+ */
+const transformLogFromDB = (dbLog: ContentLogDB): ContentLog => ({
+    id: dbLog.id,
+    action: dbLog.action,
+    section: dbLog.section,
+    description: dbLog.description,
+    performedBy: dbLog.performed_by,
+    createdAt: dbLog.created_at,
+});
+
+export const contentLogsAPI = {
+    /**
+     * Fetch all content logs (for admin dashboard)
+     */
+    async getAll(limit = 50): Promise<ContentLog[]> {
+        const { data, error } = await supabase
+            .from('content_logs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            console.error('Error fetching content logs:', error);
+            throw error;
+        }
+
+        return (data || []).map(transformLogFromDB);
+    },
+
+    /**
+     * Create a new content log entry
+     */
+    async create(log: Omit<ContentLog, 'id' | 'createdAt'>): Promise<void> {
+        const { error } = await supabase
+            .from('content_logs')
+            .insert([{
+                action: log.action,
+                section: log.section,
+                description: log.description,
+                performed_by: log.performedBy
+            }]);
+
+        if (error) {
+            console.error('Error creating content log:', error);
+            // Don't throw here to avoid failing the main action if logging fails
         }
     },
 };

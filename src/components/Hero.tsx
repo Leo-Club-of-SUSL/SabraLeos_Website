@@ -51,7 +51,7 @@ const Hero = () => {
              animate={{ opacity: 1, y: 0 }}
              transition={{ duration: 0.8, delay: 0.8 }}
            >
-             <Link to="contact" smooth={true} duration={500}>
+             <Link to="projects" smooth={true} duration={500}>
                <motion.button
                  whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
                  whileTap={{ scale: 0.95 }}
