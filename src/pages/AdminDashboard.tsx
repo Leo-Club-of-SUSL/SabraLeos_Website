@@ -23,7 +23,7 @@ import { imageService } from '../lib/imageService';
 import type { SecurityLog } from '../lib/securityService';
 import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
 
-type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'messages' | 'security' | 'analytics';
+type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'messages' | 'security' | 'analytics' | 'logs';
 
 // ================================================================
 // Tab Config
@@ -36,6 +36,7 @@ const TAB_CONFIG: { key: TabType; label: string; icon: any; color: string }[] = 
   { key: 'awards', label: 'Awards', icon: Trophy, color: 'text-gray-400' },
   { key: 'content', label: 'Content', icon: Settings, color: 'text-gray-400' },
   { key: 'messages', label: 'Messages', icon: Mail, color: 'text-gray-400' },
+  { key: 'logs', label: 'Activity Log', icon: Clock, color: 'text-gray-400' },
   { key: 'security', label: 'Security', icon: Shield, color: 'text-gray-400' },
 ];
 
@@ -86,7 +87,8 @@ const AdminDashboard = () => {
     addMember, updateMember, deleteMember,
     addImage, updateImage, deleteImage,
     addAward, updateAward, deleteAward,
-    bulkUpdateSiteContent, bulkUpdateGallery, bulkUpdateLeadership
+    bulkUpdateSiteContent, bulkUpdateGallery, bulkUpdateLeadership,
+    logs, fetchLogs
   } = useData();
 
 
@@ -130,6 +132,7 @@ const AdminDashboard = () => {
   // Messages state
   const [messages, setMessages] = useState<any[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -206,7 +209,7 @@ const AdminDashboard = () => {
   };
 
 
-  const handleDeleteClick = (item: any, type?: 'executive' | 'board' | 'chief') => {
+  const handleDeleteClick = (item: any, type?: 'executive' | 'board' | 'chief' | 'advisor' | 'past_president') => {
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Item',
@@ -225,7 +228,7 @@ const AdminDashboard = () => {
 
           // 2. Delete from DB
           if (activeTab === 'projects') await deleteProject(item.id);
-          if (activeTab === 'leadership' && type) await deleteMember(item.id, type);
+          if (activeTab === 'leadership' && type) await deleteMember(item.id, type as any);
           if (activeTab === 'gallery') await deleteImage(item.id);
           if (activeTab === 'awards') await deleteAward(item.id);
           if (activeTab === 'messages') {
@@ -321,7 +324,7 @@ const AdminDashboard = () => {
         editingItem ? await updateProject(finalForm as Project) : await addProject(finalForm as Omit<Project, 'id'>);
       } else if (activeTab === 'leadership') {
         const finalForm = { ...memberForm, image: currentImageUrl };
-        const t = memberForm.type as 'executive' | 'board' | 'chief';
+        const t = memberForm.type as any;
         editingItem ? await updateMember(finalForm as LeadershipMember, t) : await addMember(finalForm as Omit<LeadershipMember, 'id'>, t);
       } else if (activeTab === 'gallery') {
         // Force new images to Library
@@ -375,8 +378,9 @@ const AdminDashboard = () => {
     }
   };
 
-  const moveLeadershipMember = (member: LeadershipMember, groupType: 'executive' | 'board' | 'chief', direction: 'up' | 'down') => {
-    const items = [...leadership[groupType]].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const moveLeadershipMember = (member: LeadershipMember, groupType: 'executive' | 'board' | 'chief' | 'past_president', direction: 'up' | 'down') => {
+    const key = groupType === 'past_president' ? 'pastPresidents' : groupType;
+    const items = [...((leadership as any)[key] as LeadershipMember[])].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const idx = items.findIndex(m => m.id === member.id);
     if (idx === -1) return;
     if (direction === 'up' && idx === 0) return;
@@ -479,6 +483,10 @@ const AdminDashboard = () => {
     if (tab === 'content') initContentForm(contentSection);
     if (tab === 'security') { fetchSecurityLogs(); setAlertEmail(siteContent['alert_email'] || ''); }
     if (tab === 'messages') fetchMessages();
+    if (tab === 'logs') {
+      setLogsLoading(true);
+      fetchLogs().finally(() => setLogsLoading(false));
+    }
   };
 
   useEffect(() => { 
@@ -664,13 +672,48 @@ const AdminDashboard = () => {
             {/* ──── LEADERSHIP TAB ──── */}
             {activeTab === 'leadership' && (
               <div className="space-y-8">
-                {(['executive', 'chief', 'board'] as const).map(groupType => {
-                  const items = [...leadership[groupType]].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                {/* Advisor Section */}
+                <div>
+                   <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-leo-gold)] dark:text-[var(--color-leo-gold)] mb-0 flex items-center gap-2">
+                        <Users size={14} /> Club Advisor
+                      </h3>
+                      {!leadership.advisor && (
+                        <button onClick={() => { setMemberForm({ type: 'advisor' }); setEditingItem(null); setIsModalOpen(true); }} className="text-[10px] font-black uppercase tracking-widest text-[var(--color-leo-maroon)] hover:underline">+ Set Advisor</button>
+                      )}
+                   </div>
+                   {leadership.advisor ? (
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-red-50 to-white dark:from-red-900/5 dark:to-slate-800 border border-red-100 dark:border-red-900/20 flex items-center gap-4 group">
+                         <img src={leadership.advisor.image} alt="" className="w-16 h-16 rounded-2xl object-cover shrink-0 border-2 border-white dark:border-slate-700 shadow-sm" />
+                         <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-gray-800 dark:text-white uppercase text-xs tracking-tight">{leadership.advisor.name}</h4>
+                            <p className="text-[11px] font-bold text-[var(--color-leo-gold)] uppercase tracking-tighter mt-0.5">{leadership.advisor.position}</p>
+                         </div>
+                         <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => handleEditClick(leadership.advisor!)} className="p-2 bg-white dark:bg-slate-700 rounded-xl text-blue-500 shadow-sm hover:scale-105 active:scale-95 transition-all"><Edit size={16} /></button>
+                            <button onClick={() => handleDeleteClick(leadership.advisor!, 'advisor')} className="p-2 bg-white dark:bg-slate-700 rounded-xl text-red-500 shadow-sm hover:scale-105 active:scale-95 transition-all"><Trash2 size={16} /></button>
+                         </div>
+                      </div>
+                   ) : (
+                      <div className="py-8 text-center border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-3xl opacity-50">
+                         <p className="text-xs font-medium italic text-gray-400">Advisor not set</p>
+                      </div>
+                   )}
+                </div>
+
+                <div className="h-px bg-gradient-to-r from-transparent via-gray-100 dark:via-slate-800 to-transparent my-2" />
+
+                {(['executive', 'chief', 'board', 'past_president'] as const).map(groupType => {
+                  const key = groupType === 'past_president' ? 'pastPresidents' : groupType;
+                  const items = [...((leadership as any)[key] as LeadershipMember[])].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
                   return (
                     <div key={groupType}>
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-0">
-                          {groupType === 'executive' ? 'Executive Committee' : groupType === 'chief' ? 'Chief Directors' : 'Board of Directors'}
+                           {groupType === 'executive' ? 'Executive Committee' : 
+                            groupType === 'chief' ? 'Chief Directors' : 
+                            groupType === 'board' ? 'Board of Directors' : 
+                            'Past Presidents'}
                         </h3>
                         <span className="text-[10px] text-gray-400 dark:text-gray-500 italic block">Use arrows to reorder hierarchy</span>
                       </div>
@@ -680,13 +723,13 @@ const AdminDashboard = () => {
                         <div className="space-y-3">
                           {items.map((member, idx) => (
                             <div
-                              key={member.id}
-                              className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500/50 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-all group bg-white dark:bg-slate-800 hover:shadow-md"
+                               key={member.id}
+                               className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500/50 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-all group bg-white dark:bg-slate-800 hover:shadow-md"
                             >
                               <img src={member.image} alt="" className="w-11 h-11 rounded-full object-cover shrink-0 pointer-events-none" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-sm text-gray-800 dark:text-white truncate">{member.name}</p>
-                                <p className="text-xs text-gray-400 truncate">{member.position}</p>
+                                <p className="text-xs text-gray-400 truncate">{member.position} {member.type === 'past_president' && `(${member.serviceYear})`}</p>
                               </div>
                               <div className="flex gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity items-center">
                                 <div className="flex flex-col gap-0.5 border-r border-gray-200 dark:border-slate-700 pr-2 mr-1">
@@ -966,6 +1009,70 @@ const AdminDashboard = () => {
               </div>
             )}
 
+            {/* ──── ACTIVITY LOG TAB ──── */}
+            {activeTab === 'logs' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center mb-2">
+                   <h3 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2"><Clock size={16} /> Activity Log</h3>
+                   <button onClick={() => { setLogsLoading(true); fetchLogs().finally(() => setLogsLoading(false)); }} disabled={logsLoading} className="text-xs text-[var(--color-leo-maroon)] hover:underline flex items-center gap-1 disabled:opacity-50">
+                      <RefreshCw size={12} className={logsLoading ? 'animate-spin' : ''} /> Refresh
+                   </button>
+                </div>
+
+                {logsLoading && !logs.length ? (
+                  <div className="text-center py-12 text-gray-400"><Loader2 size={24} className="animate-spin mx-auto mb-2" />Loading logs...</div>
+                ) : logs.length === 0 ? (
+                  <EmptyState icon={Clock} text="No activity yet" sub="Content changes will be logged here" />
+                ) : (
+                  <div className="border border-gray-100 dark:border-slate-700 rounded-xl overflow-hidden overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-50 dark:bg-slate-700/50 text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Date & Time</th>
+                          <th className="px-4 py-3 font-semibold">Section</th>
+                          <th className="px-4 py-3 font-semibold">Action</th>
+                          <th className="px-4 py-3 font-semibold">Description</th>
+                          <th className="px-4 py-3 font-semibold">Performed By</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50">
+                        {logs.map(log => (
+                          <tr key={log.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors">
+                            <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                              {new Date(log.createdAt).toLocaleString(undefined, {
+                                dateStyle: 'medium',
+                                timeStyle: 'short'
+                              })}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">
+                                {log.section}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                log.action === 'created' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                log.action === 'deleted' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                              }`}>
+                                {log.action}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-600 dark:text-gray-300 text-xs min-w-[200px]">
+                              {log.description}
+                            </td>
+                            <td className="px-4 py-3 text-gray-400 text-xs font-mono">
+                              {log.performedBy}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ──── MESSAGES TAB ──── */}
             {activeTab === 'messages' && (
               <div className="space-y-6">
@@ -1097,11 +1204,16 @@ const AdminDashboard = () => {
                 <FormField label="Position"><input required className={inputCls} value={memberForm.position || ''} onChange={e => setMemberForm({ ...memberForm, position: e.target.value })} /></FormField>
                 <FormField label="Type">
                   <select className={inputCls} value={memberForm.type} onChange={e => setMemberForm({ ...memberForm, type: e.target.value as any })}>
+                    <option value="advisor">Club Advisor</option>
                     <option value="executive">Executive Committee</option>
                     <option value="chief">Chief Director</option>
                     <option value="board">Board of Director</option>
+                    <option value="past_president">Past President</option>
                   </select>
                 </FormField>
+                {memberForm.type === 'past_president' && (
+                  <FormField label="Service Year"><input required className={inputCls} value={memberForm.serviceYear || ''} onChange={e => setMemberForm({ ...memberForm, serviceYear: e.target.value })} placeholder="e.g. 2022/2023" /></FormField>
+                )}
                 <ImageUploadField 
                   label="Image" 
                   onFileChange={handleFileChange}

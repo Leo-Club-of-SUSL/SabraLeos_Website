@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Sun, Moon, UserCog } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NAV_LINKS } from '../data';
 import { useTheme } from '../context/ThemeContext';
@@ -26,24 +26,31 @@ const Navbar = () => {
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
-      // Small timeout to allow potential navigation/rendering to complete if needed, 
-      // but for same-page it should be almost instant.
-      // However, for pure same-page smooth scroll, we can just call it directly.
-      // If we are redirecting from another page, the timeout in handleNavClick handles it.
-      element.scrollIntoView({ behavior: 'smooth' });
+      const offset = 80; // Navbar height offset
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+      window.scrollTo({
+        top: id === 'home' ? 0 : offsetPosition,
+        behavior: 'smooth'
+      });
     }
   };
 
   const handleNavClick = (href: string) => {
     setIsOpen(false);
     if (isHomePage) {
-      scrollToSection(href);
-    } else {
-      navigate('/');
-      // Wait for navigation to complete before scrolling
+      // Small delay to allow the mobile menu animation to start closing 
+      // before scrolling, which can help some mobile browsers.
       setTimeout(() => {
         scrollToSection(href);
-      }, 100);
+      }, 50);
+    } else {
+      navigate('/');
+      // Wait for navigation and initial render to complete before scrolling
+      setTimeout(() => {
+        scrollToSection(href);
+      }, 300);
     }
   };
 
@@ -108,17 +115,6 @@ const Navbar = () => {
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
           </li>
-
-          <li>
-            <RouterLink
-              to="/admin"
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-leo-maroon)] text-white hover:bg-red-900 transition-colors text-sm font-medium"
-              aria-label="Admin Dashboard"
-            >
-              <UserCog size={16} />
-              Admin
-            </RouterLink>
-          </li>
         </ul>
 
         {/* Mobile Menu Button */}
@@ -153,26 +149,15 @@ const Navbar = () => {
           >
             <ul className="flex flex-col items-center py-4 space-y-4 list-none m-0 p-0">
               {NAV_LINKS.map((link) => (
-                <li key={link.name}>
+                <li key={link.name} className="w-full">
                   <button
                     onClick={() => handleNavClick(link.href)}
-                    className="text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)] cursor-pointer font-medium text-lg bg-transparent border-none"
+                    className="w-full text-center py-2 text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)] cursor-pointer font-medium text-xl bg-transparent border-none active:bg-gray-100 dark:active:bg-slate-800 transition-colors"
                   >
                     {link.name}
                   </button>
                 </li>
               ))}
-              <li>
-                <RouterLink
-                  to="/admin"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-2 px-6 py-2 rounded-full bg-[var(--color-leo-maroon)] text-white hover:bg-red-900 transition-colors font-medium"
-                  aria-label="Admin Dashboard Login"
-                >
-                  <UserCog size={18} />
-                  Admin Login
-                </RouterLink>
-              </li>
             </ul>
           </motion.div>
         )}

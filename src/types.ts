@@ -14,9 +14,10 @@ export interface LeadershipMemberDB {
     id: number;
     name: string;
     position: string;
-    role_type: 'Executive' | 'Board' | 'Chief';
+    role_type: 'Executive' | 'Board' | 'Chief' | 'Advisor' | 'PastPresident';
     image_url: string;
     year: string;
+    service_year?: string; // e.g. "2022/2023" for past presidents
     created_at: string;
     sort_order?: number;
 }
@@ -81,8 +82,9 @@ export interface LeadershipMember {
     name: string;
     position: string;
     image: string;
-    type: 'executive' | 'board' | 'chief';
+    type: 'executive' | 'board' | 'chief' | 'advisor' | 'past_president';
     year?: string;
+    serviceYear?: string;
     sortOrder?: number;
 }
 
@@ -103,9 +105,30 @@ export interface Award {
 }
 
 export interface LeadershipData {
+    advisor?: LeadershipMember;
     executive: LeadershipMember[];
     chief: LeadershipMember[];
     board: LeadershipMember[];
+    pastPresidents: LeadershipMember[];
+}
+
+// Engagement & Audit Types
+export interface ContentLogDB {
+    id: string;
+    action: string;
+    section: string;
+    description: string;
+    performed_by: string;
+    created_at: string;
+}
+
+export interface ContentLog {
+    id: string;
+    action: string;
+    section: string;
+    description: string;
+    performedBy: string;
+    createdAt: string;
 }
 
 // Site content is a simple key-value map

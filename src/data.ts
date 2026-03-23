@@ -14,7 +14,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     // Hero section
     hero_title: 'Leo Club of',
     hero_subtitle: 'Sabaragamuwa University of Sri Lanka',
-    hero_cta: 'Join Us',
+    hero_cta: 'Explore Our Projects',
     hero_tagline: 'Empowering Youth, Serving Community',
     hero_bg_image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=1920&auto=format&fit=crop',
     site_logo: '',
