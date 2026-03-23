@@ -17,8 +17,15 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
   const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  // Sort by id descending so the latest uploaded images appear at the top
-  const sortedGallery = [...gallery].sort((a, b) => b.id - a.id);
+  // If limit is provided, we are on the Home Feed. Use sortOrder.
+  // Otherwise, use id descending for the full Library view.
+  const sortedGallery = limit
+    ? [...gallery].sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return b.id - a.id;
+    })
+    : [...gallery].sort((a, b) => b.id - a.id);
+
   const homeGallery = limit ? sortedGallery.filter(img => img.showOnHome) : sortedGallery;
   const displayedGallery = limit
     ? homeGallery.slice(0, limit)
