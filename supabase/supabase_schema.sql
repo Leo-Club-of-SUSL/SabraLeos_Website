@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS awards (
   description TEXT,
   image_url TEXT NOT NULL,
   year TEXT,
+  sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- ============================================

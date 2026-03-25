@@ -5,6 +5,7 @@ export const NAV_LINKS = [
     { name: 'About', href: 'about' },
     { name: 'Projects', href: 'projects' },
     { name: 'Leadership', href: 'leadership' },
+    { name: 'Awards', href: 'awards' },
     { name: 'Gallery', href: 'gallery' },
     { name: 'Contact', href: 'contact' },
 ];
@@ -16,7 +17,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     hero_subtitle: 'Sabaragamuwa University of Sri Lanka',
     hero_cta: 'Explore Our Projects',
     hero_tagline: 'Empowering Youth, Serving Community',
-    hero_bg_image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=1920&auto=format&fit=crop',
+    hero_bg_image: '',
     site_logo: '',
     site_banner: '',
 

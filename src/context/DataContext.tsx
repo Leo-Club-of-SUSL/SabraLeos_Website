@@ -28,6 +28,7 @@ interface DataContextType {
 
   updateAward: (id: number, award: Partial<Award>) => Promise<void>;
   deleteAward: (id: number) => Promise<void>;
+  bulkUpdateAwards: (updates: { id: number; sort_order?: number }[]) => Promise<void>;
   updateSiteContent: (key: string, value: string) => Promise<void>;
   bulkUpdateSiteContent: (entries: { key: string; value: string }[], section?: string) => Promise<void>;
   logs: ContentLog[];
@@ -360,8 +361,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   // Award Actions
   const addAward = async (award: Omit<Award, 'id'>) => {
     try {
-      const newAward = await awardsAPI.create(award);
-      setAwards(prev => [newAward, ...prev]);
+      const nextSortOrder = awards.length > 0 
+        ? Math.max(...awards.map(a => a.sortOrder || 0)) + 1 
+        : 0;
+      const newAward = await awardsAPI.create({ ...award, sortOrder: nextSortOrder });
+      setAwards(prev => [...prev, newAward].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)));
       await logAction('created', 'awards', `Added award: ${award.title}`);
     } catch (err) {
       console.error('Error adding award:', err);
@@ -390,6 +394,28 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (err) {
       console.error('Error deleting award:', err);
+      throw err;
+    }
+  };
+
+  const bulkUpdateAwards = async (updates: { id: number; sort_order?: number }[]) => {
+    try {
+      // Optimistic update
+      setAwards(prev => {
+        return prev.map(a => {
+          const update = updates.find(u => u.id === a.id);
+          if (update && update.sort_order !== undefined) {
+            return { ...a, sortOrder: update.sort_order };
+          }
+          return a;
+        }).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      });
+
+      await awardsAPI.bulkUpdate(updates);
+    } catch (err) {
+      console.error('Error bulk updating awards:', err);
+      const freshData = await awardsAPI.getAll();
+      setAwards(freshData);
       throw err;
     }
   };
@@ -460,6 +486,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       addAward,
       updateAward,
       deleteAward,
+      bulkUpdateAwards,
       updateSiteContent,
       bulkUpdateSiteContent,
       logs,
