@@ -14,7 +14,8 @@ import AnalyticsWidget from '../components/admin/AnalyticsWidget';
 
 import { Reorder } from 'framer-motion';
 import Cropper from 'react-easy-crop';
-import getCroppedImg from '../lib/cropImage';import { useData } from '../context/DataContext';
+import getCroppedImg from '../lib/cropImage';
+import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
