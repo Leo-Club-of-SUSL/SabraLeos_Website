@@ -329,8 +329,8 @@ const AdminDashboard = () => {
 
           currentImageUrl = uploadedUrl;
         } catch (err) {
-          console.error(err);
-          showToast('Image upload failed. Please try again.', 'error');
+          console.error('Upload process failed:', err);
+          showToast(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}. Please check your environment variables.`, 'error');
           setSubmitting(false);
           setUploadingImage(false);
           return;
@@ -361,8 +361,8 @@ const AdminDashboard = () => {
       setSelectedThumbnail(null);
       showToast(editingItem ? 'Updated successfully!' : 'Created successfully!', 'success');
     } catch (err) { 
-      console.error(err);
-      showToast('Failed to save. Please try again.', 'error'); 
+      console.error('Save failed:', err);
+      showToast(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`, 'error'); 
     }
     finally { setSubmitting(false); }
   };

@@ -67,10 +67,15 @@ export const imageService = {
       }
       
       const data = await res.json();
+      if (!data.secure_url) {
+        console.error('Cloudinary response missing secure_url:', data);
+        throw new Error('Cloudinary response missing secure_url - check your preset configuration');
+      }
       return data.secure_url;
     } catch (err) {
       console.error('Cloudinary upload error:', err);
-      throw err;
+      if (err instanceof Error) throw err;
+      throw new Error('Cloudinary upload failed due to network or configuration error');
     }
   },
 
