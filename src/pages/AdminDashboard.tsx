@@ -86,7 +86,7 @@ const AdminDashboard = () => {
     addProject, updateProject, deleteProject,
     addMember, updateMember, deleteMember,
     addImage, updateImage, deleteImage,
-    addAward, updateAward, deleteAward,
+    addAward, updateAward, deleteAward, bulkUpdateAwards,
     bulkUpdateSiteContent, bulkUpdateGallery, bulkUpdateLeadership,
     logs, fetchLogs
   } = useData();
@@ -97,6 +97,7 @@ const AdminDashboard = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedThumbnail, setSelectedThumbnail] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isBulkUpload, setIsBulkUpload] = useState(false);
 
@@ -146,6 +147,7 @@ const AdminDashboard = () => {
     setImageForm({ showOnHome: false, sortOrder: 0 });
     setAwardForm({});
     setContentFiles({});
+    setSelectedThumbnail(null);
   };
 
 
@@ -178,14 +180,14 @@ const AdminDashboard = () => {
         setSelectedFiles(Array.from(e.target.files));
       } else {
         const file = e.target.files[0];
-        if (activeTab === 'leadership') {
+        setSelectedFile(file); // Always store the original file
+        
+        if (activeTab === 'leadership' || activeTab === 'awards') {
           // Open Cropper
           setCropImageSrc(URL.createObjectURL(file));
           setCropModalOpen(true);
           setCrop({ x: 0, y: 0 });
           setZoom(1);
-        } else {
-          setSelectedFile(file);
         }
       }
     }
@@ -198,10 +200,17 @@ const AdminDashboard = () => {
   const handleCropSubmit = async () => {
     if (!cropImageSrc || !croppedAreaPixels) return;
     try {
-      const croppedFile = await getCroppedImg(cropImageSrc, croppedAreaPixels, 'profile.jpg');
-      setSelectedFile(croppedFile);
+      const croppedFile = await getCroppedImg(cropImageSrc, croppedAreaPixels, 'cropped.jpg');
+      
+      if (activeTab === 'leadership') {
+        setSelectedFile(croppedFile);
+      } else if (activeTab === 'awards') {
+        setSelectedThumbnail(croppedFile);
+      }
+      
       setCropModalOpen(false);
       setCropImageSrc(null);
+      if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
     } catch (e) {
       console.error(e);
       showToast('Cropping failed', 'error');
@@ -291,6 +300,16 @@ const AdminDashboard = () => {
             // Cloudinary
             const customName = activeTab === 'gallery' ? imageForm.alt : awardForm.title;
             uploadedUrl = await imageService.uploadToCloudinary(fileToUpload, customName);
+
+            // Double upload for awards if we have a crop
+            if (activeTab === 'awards' && selectedThumbnail) {
+              try {
+                const thumbUrl = await imageService.uploadToCloudinary(selectedThumbnail, `${customName}_thumb`);
+                awardForm.thumbnail = thumbUrl;
+              } catch (thumbErr) {
+                console.warn('Thumbnail upload failed, falling back to full image:', thumbErr);
+              }
+            }
           } else {
             // Supabase
             const bucket = activeTab === 'projects' ? 'projects' : 
@@ -338,6 +357,7 @@ const AdminDashboard = () => {
       setIsModalOpen(false);
       resetForms();
       setSelectedFile(null);
+      setSelectedThumbnail(null);
       showToast(editingItem ? 'Updated successfully!' : 'Created successfully!', 'success');
     } catch (err) { 
       console.error(err);
@@ -398,6 +418,25 @@ const AdminDashboard = () => {
       await updateImage(img.id, { showOnHome: newState });
       showToast(newState ? 'Promoted to Home Page Feed' : 'Moved to Photo Library', 'info');
     } catch { showToast('Failed to update image', 'error'); }
+  };
+
+  const moveAward = async (award: Award, direction: 'up' | 'down') => {
+    const sortedAwards = [...awards].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const idx = sortedAwards.findIndex(a => a.id === award.id);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === sortedAwards.length - 1) return;
+
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    [sortedAwards[idx], sortedAwards[swapIdx]] = [sortedAwards[swapIdx], sortedAwards[idx]];
+
+    try {
+      const updates = sortedAwards.map((a, i) => ({ id: a.id, sort_order: i }));
+      await bulkUpdateAwards(updates);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save award order', 'error');
+    }
   };
 
 
@@ -875,22 +914,25 @@ const AdminDashboard = () => {
 
 
 
-            {/* ──── AWARDS TAB ──── */}
             {activeTab === 'awards' && (
               awards.length === 0 ? (
                 <EmptyState icon={Trophy} text="No awards yet" sub="Add your first award to showcase it on the home page" />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {awards.map(award => (
-                    <div key={award.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors group">
+                <div className="space-y-3">
+                  {awards.map((award, idx) => (
+                    <div key={award.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors group bg-white dark:bg-slate-800">
                       <img src={award.image} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0 bg-gray-100" />
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-gray-800 dark:text-white truncate">{award.title}</p>
                         <p className="text-xs text-gray-400 truncate">{award.year || 'N/A'}</p>
                       </div>
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity items-center">
+                        <div className="flex flex-col gap-0.5 border-r border-gray-200 dark:border-slate-700 pr-2 mr-1">
+                          <button disabled={idx === 0} onClick={() => moveAward(award, 'up')} className="p-0.5 text-gray-400 hover:text-emerald-500 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"><ArrowUp size={14} /></button>
+                          <button disabled={idx === awards.length - 1} onClick={() => moveAward(award, 'down')} className="p-0.5 text-gray-400 hover:text-emerald-500 disabled:opacity-30 disabled:hover:text-gray-400 transition-colors"><ArrowDown size={14} /></button>
+                        </div>
                         <button onClick={() => handleEditClick(award)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
-                         <button onClick={() => handleDeleteClick(award)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                        <button onClick={() => handleDeleteClick(award)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                       </div>
                     </div>
                   ))}

@@ -1,12 +1,25 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Loader2, Trophy } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Loader2, Trophy, X, Calendar } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
 
 const Awards = () => {
   const { awards, loading } = useData();
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedAward, setSelectedAward] = useState<any>(null);
+
+  // Prevent scroll when modal is open
+  useEffect(() => {
+    if (selectedAward) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedAward]);
 
   const handleScroll = () => {
     if (!containerRef.current) return;
@@ -63,11 +76,12 @@ const Awards = () => {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="flex-none w-64 snap-center group"
+                onClick={() => setSelectedAward(award)}
+                className="flex-none w-64 snap-center group cursor-pointer"
               >
                 <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl group-hover:border-[var(--color-leo-gold)] transition-all duration-500">
                   <img
-                    src={award.image}
+                    src={award.thumbnail || award.image}
                     alt={award.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     loading="lazy"
@@ -112,6 +126,85 @@ const Awards = () => {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {selectedAward && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedAward(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm shadow-2xl"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]"
+            >
+              <button
+                onClick={() => setSelectedAward(null)}
+                className="absolute top-4 right-4 z-10 p-2 bg-white/20 hover:bg-white/40 dark:bg-black/20 dark:hover:bg-black/40 backdrop-blur-md rounded-full text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="w-full md:w-[45%] h-[400px] md:h-auto overflow-hidden bg-gray-100 dark:bg-slate-800 flex items-center justify-center p-8">
+                <div className="relative group w-full h-full flex items-center justify-center">
+                  <div className="absolute -inset-2 bg-[var(--color-leo-gold)]/10 rounded-2xl blur-2xl group-hover:bg-[var(--color-leo-gold)]/20 transition-all duration-500" />
+                  <img
+                    src={selectedAward.image}
+                    alt={selectedAward.title}
+                    className="relative w-auto h-auto max-w-full max-h-full object-contain rounded-xl border-4 border-white dark:border-white shadow-2xl"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                  />
+                  <div className="absolute top-0 right-0 bg-[var(--color-leo-gold)] p-2 rounded-lg shadow-lg">
+                    <Trophy className="text-[var(--color-leo-maroon)] w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full md:w-[55%] p-8 overflow-y-auto flex flex-col justify-center bg-white dark:bg-slate-900">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="bg-[var(--color-leo-gold)]/10 text-[var(--color-leo-gold)] border border-[var(--color-leo-gold)]/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                    Award & Recognition
+                  </span>
+                  {selectedAward.year && (
+                    <span className="flex items-center text-xs font-bold text-gray-500 dark:text-gray-400">
+                      <Calendar size={14} className="mr-1 text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]" />
+                      {selectedAward.year}
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="text-3xl font-bold text-[var(--color-leo-maroon)] dark:text-white mb-6 leading-tight">
+                  {selectedAward.title}
+                </h3>
+
+                {selectedAward.description ? (
+                  <div className="relative">
+                    <div className="absolute -left-4 top-0 bottom-0 w-1 bg-[var(--color-leo-gold)]/30 rounded-full" />
+                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed italic text-lg pl-4">
+                      "{selectedAward.description}"
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400 italic">
+                    No additional description available for this recognition.
+                  </p>
+                )}
+
+                <div className="mt-10 pt-6 border-t border-gray-100 dark:border-slate-800">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
+                    Official Recognition • Sabaragamuwa University
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar {

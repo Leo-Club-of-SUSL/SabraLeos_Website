@@ -91,8 +91,10 @@ const transformAwardFromDB = (dbAward: AwardDB): Award => ({
     id: dbAward.id,
     title: dbAward.title,
     image: dbAward.image_url,
+    thumbnail: dbAward.thumbnail_url || undefined,
     description: dbAward.description || undefined,
     year: dbAward.year || undefined,
+    sortOrder: dbAward.sort_order || 0,
 });
 
 /**
@@ -101,8 +103,10 @@ const transformAwardFromDB = (dbAward: AwardDB): Award => ({
 const transformAwardToDB = (award: Omit<Award, 'id'>): Omit<AwardDB, 'id' | 'created_at'> => ({
     title: award.title,
     image_url: award.image,
+    thumbnail_url: award.thumbnail || null,
     description: award.description || null,
     year: award.year || null,
+    sort_order: award.sortOrder || 0,
 });
 
 // ============================================
@@ -479,6 +483,7 @@ export const awardsAPI = {
         const { data, error } = await supabase
             .from('awards')
             .select('*')
+            .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -516,8 +521,10 @@ export const awardsAPI = {
         const updateData: Record<string, unknown> = {};
         if (award.title !== undefined) updateData.title = award.title;
         if (award.image !== undefined) updateData.image_url = award.image;
+        if (award.thumbnail !== undefined) updateData.thumbnail_url = award.thumbnail;
         if (award.description !== undefined) updateData.description = award.description;
         if (award.year !== undefined) updateData.year = award.year;
+        if (award.sortOrder !== undefined) updateData.sort_order = award.sortOrder;
 
         const { data, error } = await supabase
             .from('awards')
@@ -548,6 +555,25 @@ export const awardsAPI = {
             throw error;
         }
     },
+
+    /**
+     * Bulk update multiple awards (useful for reordering)
+     */
+    async bulkUpdate(updates: { id: number; sort_order?: number }[]): Promise<void> {
+        const promises = updates.map(({ id, ...rest }) => 
+            supabase
+                .from('awards')
+                .update(rest)
+                .eq('id', id)
+        );
+
+        const results = await Promise.all(promises);
+        const errors = results.filter(r => r.error);
+        if (errors.length > 0) {
+            console.error('Error bulk updating awards:', errors);
+            throw errors[0].error;
+        }
+    }
 };
 
 // ============================================

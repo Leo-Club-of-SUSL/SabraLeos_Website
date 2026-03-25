@@ -43,8 +43,10 @@ export interface AwardDB {
     id: number;
     title: string;
     image_url: string;
+    thumbnail_url: string | null;
     description: string | null;
     year: string | null;
+    sort_order: number;
     created_at: string;
 }
 
@@ -100,8 +102,10 @@ export interface Award {
     id: number;
     title: string;
     image: string;
+    thumbnail?: string;
     description?: string;
     year?: string;
+    sortOrder?: number;
 }
 
 export interface LeadershipData {

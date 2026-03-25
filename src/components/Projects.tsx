@@ -1,12 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Calendar, Users, ArrowRight, Clock, Loader2 } from 'lucide-react';
+import { Calendar, Users, ArrowRight, Clock, Loader2, X } from 'lucide-react';
 
 const Projects = () => {
   const { projects, loading, error } = useData();
   const [filter, setFilter] = useState('All');
+  const [selectedProject, setSelectedProject] = useState<any>(null);
   const categories = ['All', 'Completed', 'Ongoing', 'Upcoming'];
+
+  // Prevent scroll when modal is open
+  useEffect(() => {
+    if (selectedProject) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedProject]);
 
   const filteredProjects = filter === 'All'
     ? projects
@@ -93,8 +106,8 @@ const Projects = () => {
                     initial={{ opacity: 0, x: 50 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex-none w-80 md:w-96 snap-center bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col border border-gray-100 dark:border-slate-700 h-[500px]"
+                    onClick={() => setSelectedProject(project)}
+                    className="flex-none w-80 md:w-96 snap-center bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col border border-gray-100 dark:border-slate-700 h-[500px] cursor-pointer"
                   >
                     <div className="relative h-56 overflow-hidden shrink-0">
                       <img
@@ -167,6 +180,98 @@ const Projects = () => {
           }
         `}</style>
       </div>
+
+      <AnimatePresence>
+        {selectedProject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedProject(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm shadow-2xl"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]"
+            >
+              <button
+                onClick={() => setSelectedProject(null)}
+                className="absolute top-4 right-4 z-10 p-2 bg-white/20 hover:bg-white/40 dark:bg-black/20 dark:hover:bg-black/40 backdrop-blur-md rounded-full text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="w-full md:w-1/2 h-64 md:h-auto overflow-hidden">
+                <img
+                  src={selectedProject.image}
+                  alt={selectedProject.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                />
+              </div>
+
+              <div className="w-full md:w-1/2 p-8 overflow-y-auto">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="bg-[var(--color-leo-maroon)]/10 dark:bg-[var(--color-leo-gold)]/10 text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                    {selectedProject.category}
+                  </span>
+                  {selectedProject.category === 'Ongoing' && selectedProject.status && (
+                    <span className="flex items-center text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <Clock size={14} className="mr-1" />
+                      {selectedProject.status}
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                  {selectedProject.title}
+                </h3>
+
+                <div className="space-y-4 mb-8">
+                  {selectedProject.date && (
+                    <div className="flex items-center text-gray-600 dark:text-gray-400">
+                      <Calendar size={18} className="mr-3 text-[var(--color-leo-gold)]" />
+                      <span className="font-medium">{selectedProject.date}</span>
+                    </div>
+                  )}
+
+                  {selectedProject.committee && selectedProject.committee.length > 0 && (
+                    <div className="flex items-start text-gray-600 dark:text-gray-400">
+                      <Users size={18} className="mr-3 mt-1 text-[var(--color-leo-gold)]" />
+                      <div>
+                        <p className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight mb-1">Organizing Committee</p>
+                        <p className="font-medium">{selectedProject.committee.join(", ")}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="prose dark:prose-invert max-w-none">
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                    {selectedProject.description}
+                  </p>
+                </div>
+
+                {selectedProject.category === 'Upcoming' && selectedProject.registrationLink && (
+                  <div className="mt-8">
+                    <a
+                      href={selectedProject.registrationLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center w-full bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] py-4 rounded-xl font-bold hover:bg-[#eec136] transition-all transform hover:scale-[1.02] shadow-lg"
+                    >
+                      Register Now <ArrowRight size={20} className="ml-2" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };
