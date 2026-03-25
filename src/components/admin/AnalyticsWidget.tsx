@@ -19,8 +19,8 @@ const AnalyticsWidget = () => {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      // Netlify function endpoint
-      const res = await fetch('/.netlify/functions/analytics');
+      // Cloudflare Pages function endpoint
+      const res = await fetch('/api/analytics');
       const json = await res.json();
       setData(json);
     } catch (err) {

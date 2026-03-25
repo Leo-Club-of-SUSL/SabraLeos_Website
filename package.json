@@ -10,7 +10,6 @@
     "preview": "node \"node_modules/vite/bin/vite.js\" preview"
   },
   "dependencies": {
-    "@netlify/functions": "^5.1.5",
     "@supabase/supabase-js": "^2.84.0",
     "@tailwindcss/vite": "^4.1.17",
     "browser-image-compression": "^2.0.2",
@@ -26,6 +25,7 @@
     "react-scroll": "^1.9.3"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260317.1",
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",

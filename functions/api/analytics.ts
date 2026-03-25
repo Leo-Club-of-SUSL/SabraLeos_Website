@@ -1,22 +1,31 @@
-import { Context } from "@netlify/functions";
 import { GoogleAuth } from "google-auth-library";
 
 /**
- * GA4 Analytics Reporting Function
- * Netlify Function proxy to fetch live data from GA4 Data API
+ * Cloudflare Pages Function for GA4 Reporting
+ * Migrated from Netlify Functions (.mts)
  */
-export default async (req: Request, context: Context) => {
+
+interface Env {
+  GA4_PROPERTY_ID: string;
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: string;
+  GOOGLE_PRIVATE_KEY: string;
+}
+
+export const onRequest: PagesFunction<Env> = async (context) => {
   try {
-    // 1. Get secrets from Netlify Environment
-    const propertyId = Netlify.env.get("GA4_PROPERTY_ID");
-    const clientEmail = Netlify.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
-    const privateKey = Netlify.env.get("GOOGLE_PRIVATE_KEY")?.replace(/\\n/g, '\n');
+    const { env } = context;
+    
+    // 1. Get secrets from Cloudflare Environment
+    const propertyId = env.GA4_PROPERTY_ID;
+    const clientEmail = env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    // Replace literal \n with actual newlines if stored as a single line
+    const privateKey = env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
     // 2. Safety check for setup
     if (!propertyId || !clientEmail || !privateKey) {
       return new Response(JSON.stringify({ 
         setupNeeded: true,
-        error: "Analytics connection details not configured in Netlify environment variables." 
+        error: "Analytics connection details not configured in Cloudflare environment variables." 
       }), { 
         status: 200, 
         headers: { "Content-Type": "application/json" } 
@@ -24,6 +33,7 @@ export default async (req: Request, context: Context) => {
     }
 
     // 3. Authenticate with Google
+    // GoogleAuth works in Cloudflare Workers environment with nodejs_compat flag
     const auth = new GoogleAuth({
       credentials: {
         client_email: clientEmail,
@@ -50,12 +60,12 @@ export default async (req: Request, context: Context) => {
           { name: "screenPageViews" },
           { name: "activeUsers" }
         ],
-        dimensions: [{ name: "pagePath" }], // To find top page
+        dimensions: [{ name: "pagePath" }],
         limit: 10
       }),
     });
 
-    const data = await response.json();
+    const data: any = await response.json();
 
     if (data.error) {
        console.error("GA Data API returned error:", data.error);
