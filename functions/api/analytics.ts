@@ -131,13 +131,13 @@ async function getAccessToken(email: string, privateKey: string): Promise<string
     ["sign"]
   );
 
-  const signatureBuffer = await crypto.subtle.sign(
+  const signatureData = await crypto.subtle.sign(
     "RSASSA-PKCS1-v1_5",
     cryptoKey,
     new TextEncoder().encode(signingInput)
   );
 
-  const signature = base64urlFromBuffer(signatureBuffer);
+  const signature = base64urlFromBuffer(new Uint8Array(signatureData));
   const jwt = `${signingInput}.${signature}`;
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -160,9 +160,8 @@ function base64url(str: string): string {
   return base64urlFromBuffer(new TextEncoder().encode(str));
 }
 
-/** Base64url-encode an ArrayBuffer. */
-function base64urlFromBuffer(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
+/** Base64url-encode a Uint8Array. */
+function base64urlFromBuffer(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);

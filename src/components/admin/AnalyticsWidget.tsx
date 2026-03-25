@@ -53,7 +53,7 @@ const AnalyticsWidget = () => {
         </div>
         <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-3">Setup Your Analytics Proxy</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 leading-relaxed px-4">
-          Almost there! To show live data, you need to add your Google Service Account credentials to Netlify's environment variables.
+          Almost there! To show live data, you need to add your Google Service Account credentials to Cloudflare's dashboard (Settings → Variables).
         </p>
         
         <div className="grid gap-3 text-left mb-8 max-w-sm mx-auto">
