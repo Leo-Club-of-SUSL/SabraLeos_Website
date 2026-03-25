@@ -94,9 +94,11 @@ const Awards = () => {
                   </div>
                 </div>
                 <div className="text-center">
-                  <h4 className="text-xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] mb-1 line-clamp-2 px-2 h-14 flex items-center justify-center">
-                    {award.title}
-                  </h4>
+                  <div className="h-16 flex items-center justify-center mb-1">
+                    <h4 className="text-xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] line-clamp-2 px-2">
+                      {award.title}
+                    </h4>
+                  </div>
                   {award.year && (
                     <span className="inline-block px-3 py-1 bg-white dark:bg-slate-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-300 shadow-sm">
                       {award.year}
