@@ -1,8 +1,10 @@
-import { GoogleAuth } from "google-auth-library";
-
 /**
- * Cloudflare Pages Function for GA4 Reporting
- * Migrated from Netlify Functions (.mts)
+ * Cloudflare Pages Function — GA4 Analytics Proxy
+ *
+ * Uses the Web Crypto API (crypto.subtle) to sign a JWT and exchange it for
+ * a Google OAuth2 access token. No Node.js SDK dependencies required.
+ *
+ * Route: /api/analytics  (GET)
  */
 
 interface Env {
@@ -11,89 +13,178 @@ interface Env {
   GOOGLE_PRIVATE_KEY: string;
 }
 
-export const onRequest: PagesFunction<Env> = async (context) => {
-  try {
-    const { env } = context;
-    
-    // 1. Get secrets from Cloudflare Environment
-    const propertyId = env.GA4_PROPERTY_ID;
-    const clientEmail = env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    // Replace literal \n with actual newlines if stored as a single line
-    const privateKey = env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { env } = context;
 
-    // 2. Safety check for setup
-    if (!propertyId || !clientEmail || !privateKey) {
-      return new Response(JSON.stringify({ 
-        setupNeeded: true,
-        error: "Analytics connection details not configured in Cloudflare environment variables." 
-      }), { 
-        status: 200, 
-        headers: { "Content-Type": "application/json" } 
-      });
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const { GA4_PROPERTY_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY } = env;
+
+    if (!GA4_PROPERTY_ID || !GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
+      return Response.json(
+        {
+          setupNeeded: true,
+          error: "Analytics environment variables are not configured in Cloudflare.",
+        },
+        { status: 200, headers: corsHeaders }
+      );
     }
 
-    // 3. Authenticate with Google
-    // GoogleAuth works in Cloudflare Workers environment with nodejs_compat flag
-    const auth = new GoogleAuth({
-      credentials: {
-        client_email: clientEmail,
-        private_key: privateKey,
-      },
-      scopes: "https://www.googleapis.com/auth/analytics.readonly",
-    });
+    // Normalise the private key — Cloudflare env vars may store \n as a literal backslash-n
+    const privateKey = GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n");
 
-    const client = await auth.getClient();
-    const token = await client.getAccessToken();
+    const accessToken = await getAccessToken(GOOGLE_SERVICE_ACCOUNT_EMAIL, privateKey);
 
-    // 4. Request the report (Last 30 days)
-    const reportUrl = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
-    const response = await fetch(reportUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
-        metrics: [
-          { name: "totalUsers" },
-          { name: "screenPageViews" },
-          { name: "activeUsers" }
-        ],
-        dimensions: [{ name: "pagePath" }],
-        limit: 10
-      }),
-    });
+    const gaResponse = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+          metrics: [
+            { name: "totalUsers" },
+            { name: "screenPageViews" },
+            { name: "activeUsers" },
+          ],
+          dimensions: [{ name: "pagePath" }],
+          limit: 10,
+          orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+        }),
+      }
+    );
 
-    const data: any = await response.json();
+    const data: any = await gaResponse.json();
 
     if (data.error) {
-       console.error("GA Data API returned error:", data.error);
-       throw new Error(data.error.message || "GA Data API Communication Error");
+      console.error("GA Data API error:", data.error);
+      throw new Error(data.error.message || "GA Data API error");
     }
 
-    // 5. Package results for frontend
-    const totalUsers = data.rows?.[0]?.metricValues?.[0]?.value || "0";
-    const pageViews = data.rows?.[0]?.metricValues?.[1]?.value || "0";
-    const activeUsers = data.rows?.[0]?.metricValues?.[2]?.value || "0";
-    const topPage = data.rows?.[0]?.dimensionValues?.[0]?.value || "/";
+    // Aggregate totals across all returned rows
+    let totalUsers = 0;
+    let pageViews = 0;
+    let activeUsers = 0;
 
-    return new Response(JSON.stringify({
-      totalUsers,
-      pageViews,
-      activeUsers,
-      topPage,
-      lastUpdated: new Date().toISOString()
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    for (const row of data.rows ?? []) {
+      totalUsers  += Number(row.metricValues?.[0]?.value ?? 0);
+      pageViews   += Number(row.metricValues?.[1]?.value ?? 0);
+      activeUsers += Number(row.metricValues?.[2]?.value ?? 0);
+    }
 
-  } catch (error: any) {
-    console.error("Critical Analytics Proxy Error:", error);
-    return new Response(JSON.stringify({ error: error.message || "Internal Server Analytics Error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    const topPage = data.rows?.[0]?.dimensionValues?.[0]?.value ?? "/";
+
+    return Response.json(
+      {
+        totalUsers: String(totalUsers),
+        pageViews: String(pageViews),
+        activeUsers: String(activeUsers),
+        topPage,
+        lastUpdated: new Date().toISOString(),
+      },
+      { headers: corsHeaders }
+    );
+  } catch (err: any) {
+    console.error("Analytics proxy error:", err);
+    return Response.json(
+      { error: err.message ?? "Internal analytics error" },
+      { status: 500, headers: corsHeaders }
+    );
   }
 };
+
+// ---------------------------------------------------------------------------
+// Google OAuth2 helpers — Web Crypto API only, no external packages
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds and signs a JWT, then exchanges it for a short-lived OAuth2 access token.
+ */
+async function getAccessToken(email: string, privateKey: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+
+  const header  = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64url(
+    JSON.stringify({
+      iss:   email,
+      scope: "https://www.googleapis.com/auth/analytics.readonly",
+      aud:   "https://oauth2.googleapis.com/token",
+      exp:   now + 3600,
+      iat:   now,
+    })
+  );
+
+  const signingInput = `${header}.${payload}`;
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    pemToArrayBuffer(privateKey),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signatureBuffer = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  );
+
+  const signature = base64urlFromBuffer(signatureBuffer);
+  const jwt = `${signingInput}.${signature}`;
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  const tokenData: any = await tokenRes.json();
+
+  if (!tokenData.access_token) {
+    throw new Error(`Failed to obtain access token: ${JSON.stringify(tokenData)}`);
+  }
+
+  return tokenData.access_token;
+}
+
+/** Base64url-encode a plain string. */
+function base64url(str: string): string {
+  return base64urlFromBuffer(new TextEncoder().encode(str));
+}
+
+/** Base64url-encode an ArrayBuffer. */
+function base64urlFromBuffer(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * Strips PEM headers/footers and decodes the Base64 body to an ArrayBuffer.
+ * Handles both PKCS8 ("PRIVATE KEY") and PKCS1 ("RSA PRIVATE KEY") PEM blocks.
+ */
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const base64 = pem
+    .replace(/-----BEGIN [A-Z ]+-----/g, "")
+    .replace(/-----END [A-Z ]+-----/g, "")
+    .replace(/\s+/g, "");
+
+  const binary = atob(base64);
+  const buffer = new ArrayBuffer(binary.length);
+  const view   = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i++) {
+    view[i] = binary.charCodeAt(i);
+  }
+  return buffer;
+}

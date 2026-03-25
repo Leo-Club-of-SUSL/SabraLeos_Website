@@ -1,11 +1,7 @@
 # Cloudflare Pages Configuration
-# This wrangler.toml is for Cloudflare Pages (Git integration).
-# Do NOT add an [assets] block here — that turns it into a static Worker
-# which does not support environment variables or Pages Functions.
+# SPA routing is handled by public/_redirects (Cloudflare Pages native mechanism).
+# The analytics function uses Web Crypto API directly — no nodejs_compat needed.
 
 name = "sabraleos-website"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-03-25"
-
-# Required for 'google-auth-library' to work inside Pages Functions.
-compatibility_flags = ["nodejs_compat"]
