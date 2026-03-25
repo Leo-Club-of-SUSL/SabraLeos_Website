@@ -34,10 +34,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Normalise the private key — Cloudflare env vars may store \n as a literal backslash-n
-    const privateKey = GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n");
-
-    const accessToken = await getAccessToken(GOOGLE_SERVICE_ACCOUNT_EMAIL, privateKey);
+    const accessToken = await getAccessToken(GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY);
 
     const gaResponse = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`,
@@ -174,14 +171,17 @@ function base64urlFromBuffer(bytes: Uint8Array): string {
  * Handles both PKCS8 ("PRIVATE KEY") and PKCS1 ("RSA PRIVATE KEY") PEM blocks.
  */
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const base64 = pem
-    .replace(/-----BEGIN [A-Z ]+-----/g, "")
-    .replace(/-----END [A-Z ]+-----/g, "")
-    .replace(/\s+/g, "");
+  // Cloudflare env vars may store newlines as literal '\n' strings
+  const cleanPem = pem.replace(/\\n/g, '\n');
 
+  const base64 = cleanPem
+    .replace(/-----BEGIN [A-Z ]+-----/g, '')
+    .replace(/-----END [A-Z ]+-----/g, '')
+    .replace(/\s/g, '');
+  
   const binary = atob(base64);
   const buffer = new ArrayBuffer(binary.length);
-  const view   = new Uint8Array(buffer);
+  const view = new Uint8Array(buffer);
   for (let i = 0; i < binary.length; i++) {
     view[i] = binary.charCodeAt(i);
   }
