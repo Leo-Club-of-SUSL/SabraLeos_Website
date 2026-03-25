@@ -99,7 +99,7 @@ const Projects = () => {
                   const dateB = b.date ? new Date(b.date).getTime() : 0;
                   return dateB - dateA;
                 })
-                .map((project, index) => (
+                .map((project) => (
                   <motion.div
                     layout
                     key={project.id}
