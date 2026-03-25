@@ -168,22 +168,62 @@ function base64urlFromBuffer(bytes: Uint8Array): string {
 
 /**
  * Strips PEM headers/footers and decodes the Base64 body to an ArrayBuffer.
- * Handles both PKCS8 ("PRIVATE KEY") and PKCS1 ("RSA PRIVATE KEY") PEM blocks.
+ * Handles both PKCS8 ("PRIVATE KEY") and PKCS1 ("RSA PRIVATE KEY") PEM blocks,
+ * as well as Cloudflare env var encoding quirks (literal \n, \r\n line endings, etc.).
  */
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-  // Cloudflare env vars may store newlines as literal '\n' strings
-  const cleanPem = pem.replace(/\\n/g, '\n');
+  let input = pem.trim();
 
-  const base64 = cleanPem
-    .replace(/-----BEGIN [A-Z ]+-----/g, '')
-    .replace(/-----END [A-Z ]+-----/g, '')
-    .replace(/\s/g, '');
-  
-  const binary = atob(base64);
-  const buffer = new ArrayBuffer(binary.length);
-  const view = new Uint8Array(buffer);
-  for (let i = 0; i < binary.length; i++) {
-    view[i] = binary.charCodeAt(i);
+  // 1. Handle case where user might have pasted the entire Service Account JSON
+  if (input.startsWith('{')) {
+    try {
+      const json = JSON.parse(input);
+      if (json.private_key) {
+        input = json.private_key;
+      }
+    } catch (e) {
+      // Not valid JSON, continue with original string
+    }
   }
-  return buffer;
+
+  // 2. Remove surrounding quotes if present (common if set via CLI or certain dashboards)
+  if ((input.startsWith('"') && input.endsWith('"')) || (input.startsWith("'") && input.endsWith("'"))) {
+    input = input.slice(1, -1);
+  }
+
+  // 3. Replace literal backslash-n sequences (Cloudflare stores newlines this way)
+  let cleanPem = input.replace(/\\n/g, '\n');
+
+  // 4. Strip PEM header and footer lines
+  cleanPem = cleanPem
+    .replace(/-----BEGIN [A-Z ]+-----/g, '')
+    .replace(/-----END [A-Z ]+-----/g, '');
+
+  // 5. Remove ALL whitespace and line endings
+  const base64 = cleanPem
+    .replace(/\s/g, '')
+    .trim();
+
+  // 6. Final validation and decoding
+  try {
+    const binary = atob(base64);
+    const buffer = new ArrayBuffer(binary.length);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i++) {
+      view[i] = binary.charCodeAt(i);
+    }
+    return buffer;
+  } catch (err: any) {
+    // If atob still fails, provide a very descriptive error for the user
+    const invalidChars = base64.replace(/[A-Za-z0-9+/=]/g, '');
+    const charSummary = invalidChars.length > 0 
+      ? `Contains invalid chars: "${invalidChars.slice(0, 10)}"` 
+      : "Length might not be multiple of 4 or contains hidden chars";
+      
+    throw new Error(
+      `Failed to decode GOOGLE_PRIVATE_KEY base64. ${charSummary}. ` +
+      `Ensure you copied the PRIVATE KEY part (including BEGIN/END lines) correctly. ` +
+      `Error: ${err.message}`
+    );
+  }
 }
