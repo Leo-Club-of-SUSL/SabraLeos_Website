@@ -3,9 +3,9 @@
 # Do NOT add an [assets] block here — that turns it into a static Worker
 # which does not support environment variables or Pages Functions.
 
-name = "leo-club-website"
+name = "sabraleos-website"
 pages_build_output_dir = "dist"
-compatibility_date = "2024-09-23"
+compatibility_date = "2026-03-25"
 
 # Required for 'google-auth-library' to work inside Pages Functions.
 compatibility_flags = ["nodejs_compat"]
