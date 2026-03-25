@@ -18,6 +18,9 @@ To get the project running locally:
     npm run dev
     ```
 
+3.  **Deployment**:
+    Hosted on **Cloudflare Pages**. Builds are automatically triggered via Git.
+
 ---
 
 ## 📁 Documentation

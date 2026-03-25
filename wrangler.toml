@@ -1,14 +1,11 @@
 # Cloudflare Pages Configuration
+# This wrangler.toml is for Cloudflare Pages (Git integration).
+# Do NOT add an [assets] block here — that turns it into a static Worker
+# which does not support environment variables or Pages Functions.
+
 name = "leo-club-website"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-09-23"
 
-# Node.js compatibility for 'google-auth-library' and serverless functions
-compatibility_flags = [ "nodejs_compat" ]
-
-[vars]
-# These can be defined locally for 'wrangler pages dev'
-# In production, set them in the Cloudflare Dashboard.
-# GA4_PROPERTY_ID = ""
-# GOOGLE_SERVICE_ACCOUNT_EMAIL = ""
-# GOOGLE_PRIVATE_KEY = ""
+# Required for 'google-auth-library' to work inside Pages Functions.
+compatibility_flags = ["nodejs_compat"]
