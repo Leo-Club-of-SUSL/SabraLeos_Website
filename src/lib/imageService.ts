@@ -51,12 +51,20 @@ export const imageService = {
       // Note: Cloudinary's unsigned upload uses the filename as the public_id if configured in the preset
       const renamedFile = new File([compressed], fileName, { type: compressed.type });
       
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+      if (!cloudName || !uploadPreset) {
+        console.error('Cloudinary config missing:', { cloudName, uploadPreset });
+        throw new Error('Cloudinary configuration missing. Ensure VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET are set in your hosting dashboard.');
+      }
+
       formData.append('file', renamedFile);
-      formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
+      formData.append('upload_preset', uploadPreset);
       formData.append('folder', 'leo-club');
 
       const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
         { method: 'POST', body: formData }
       );
 
