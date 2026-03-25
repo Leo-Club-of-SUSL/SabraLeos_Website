@@ -42,7 +42,9 @@ const Awards = () => {
     );
   }
 
-  if (awards.length === 0) return null;
+  if (awards.length === 0 && !loading) {
+     return <section id="awards" className="h-0 invisible pointer-events-none" aria-hidden="true" />;
+  }
 
   return (
     <section id="awards" className="py-20 bg-gray-50 dark:bg-slate-800/50 transition-colors duration-300 overflow-hidden">

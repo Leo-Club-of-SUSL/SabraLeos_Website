@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-scroll';
 import { useData } from '../context/DataContext';
 import { ArrowRight } from 'lucide-react';
@@ -6,17 +7,36 @@ import { ArrowRight } from 'lucide-react';
 const Hero = () => {
   const { siteContent } = useData();
 
+  const [isLoaded, setIsLoaded] = useState(false);
+
   return (
     <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
-        <img
-          src={siteContent.hero_bg_image}
-          alt="Leo Club Background"
-          className="w-full h-full object-cover"
-          loading="lazy"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
+        <motion.div
+           initial={{ opacity: 0 }}
+           animate={{ opacity: isLoaded ? 1 : 0 }}
+           transition={{ duration: 1.5 }}
+           className="w-full h-full"
+        >
+          <img
+            src={siteContent.hero_bg_image}
+            alt="Leo Club Background"
+            className="w-full h-full object-cover"
+            onLoad={() => setIsLoaded(true)}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        </motion.div>
+        {/* Placeholder gradient during load */}
+        <AnimatePresence>
+          {!isLoaded && (
+            <motion.div 
+               exit={{ opacity: 0 }}
+               transition={{ duration: 1 }}
+               className="absolute inset-0 bg-gradient-to-br from-slate-900 to-[var(--color-leo-maroon)]" 
+            />
+          )}
+        </AnimatePresence>
         <div className="absolute inset-0 bg-[var(--color-leo-maroon)]/80 mix-blend-multiply" />
         <div className="absolute inset-0 bg-black/30" />
       </div>

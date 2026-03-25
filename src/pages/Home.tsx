@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useData } from '../context/DataContext';
 import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
@@ -12,6 +15,42 @@ import Footer from '../components/Footer';
 const Home = () => {
   const SITE_URL = "https://sabraleos.org";
 
+
+  const { loading } = useData();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!loading && location.hash) {
+      const id = location.hash.replace('#', '');
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      const performScroll = () => {
+        const element = document.getElementById(id);
+        if (element) {
+          const offset = 80;
+          const bodyRect = document.body.getBoundingClientRect().top;
+          const elementRect = element.getBoundingClientRect().top;
+          const elementPosition = elementRect - bodyRect;
+          const offsetPosition = elementPosition - offset;
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: attempts === 0 ? 'auto' : 'smooth'
+          });
+
+          // If we haven't reached the end of the attempts, try again in case content expanded
+          if (attempts < maxAttempts) {
+            attempts++;
+            setTimeout(performScroll, 500);
+          }
+        }
+      };
+
+      // Initial jump
+      performScroll();
+    }
+  }, [loading, location.hash]);
 
   const jsonLd = {
     "@context": "https://schema.org",
