@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Loader2 } from 'lucide-react';
 
 const Leadership = () => {
   const { leadership, loading, error } = useData();
@@ -9,9 +8,17 @@ const Leadership = () => {
     return (
       <section id="leadership" className="py-20 bg-white dark:bg-slate-900 transition-colors duration-300">
         <div className="container mx-auto px-6">
-          <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <Loader2 className="w-12 h-12 text-[var(--color-leo-maroon)] animate-spin mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Loading leadership...</p>
+          <div className="text-center mb-16">
+            <div className="h-10 w-48 bg-gray-200 dark:bg-slate-800 rounded-lg mx-auto mb-4 skeleton"></div>
+            <div className="w-20 h-1 bg-[var(--color-leo-gold)] mx-auto rounded-full"></div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-12">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="w-48 text-center">
+                <div className="w-48 h-48 rounded-full bg-gray-200 dark:bg-slate-800 mx-auto mb-6 skeleton"></div>
+                <div className="h-6 w-3/4 bg-gray-200 dark:bg-slate-800 rounded mx-auto skeleton"></div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -91,29 +98,41 @@ const Leadership = () => {
         {leadership.executive.length > 0 && (
           <div className="mb-20">
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Executive Committee</h3>
-            <div className="flex flex-wrap justify-center gap-8 lg:gap-16">
-              {[...leadership.executive].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((member, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className="text-center group w-full sm:w-60"
-                >
-                  <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-lg group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
-                    <img
-                      src={member.image}
-                      alt={member.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      loading="lazy"
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
-                    />
+            <div className="space-y-12">
+              {[1, 2, 3].map(rowNum => {
+                const rowMembers = [...leadership.executive]
+                  .filter(m => (m.rowNumber || 1) === rowNum)
+                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+                if (rowMembers.length === 0) return null;
+
+                return (
+                  <div key={rowNum} className="flex flex-wrap justify-center gap-8 lg:gap-16">
+                    {rowMembers.map((member, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: index * 0.1 }}
+                        className="text-center group w-full sm:w-60"
+                      >
+                        <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-lg group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
+                          <img
+                            src={member.image}
+                            alt={member.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            loading="lazy"
+                            onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                          />
+                        </div>
+                        <h4 className="text-xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]">{member.name}</h4>
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">{member.position}</p>
+                      </motion.div>
+                    ))}
                   </div>
-                  <h4 className="text-xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]">{member.name}</h4>
-                  <p className="text-gray-500 dark:text-gray-400 font-medium">{member.position}</p>
-                </motion.div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

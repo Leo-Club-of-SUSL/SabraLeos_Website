@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Sun, Moon } from 'lucide-react';
+import { Menu, X, Sun, Moon, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NAV_LINKS } from '../data';
 import { useTheme } from '../context/ThemeContext';
@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState('home');
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -18,10 +19,24 @@ const Navbar = () => {
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
+      
+      // Track active section for navbar highlighting
+      if (isHomePage) {
+        const sections = NAV_LINKS.map(link => link.href);
+        const current = sections.find(section => {
+          const element = document.getElementById(section);
+          if (element) {
+            const rect = element.getBoundingClientRect();
+            return rect.top <= 150 && rect.bottom >= 150;
+          }
+          return false;
+        });
+        if (current) setActiveSection(current);
+      }
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isHomePage]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -34,20 +49,18 @@ const Navbar = () => {
         top: id === 'home' ? 0 : offsetPosition,
         behavior: 'smooth'
       });
+      setActiveSection(id);
     }
   };
 
   const handleNavClick = (href: string) => {
     setIsOpen(false);
     if (isHomePage) {
-      // Small delay to allow the mobile menu animation to start closing 
-      // before scrolling, which can help some mobile browsers.
       setTimeout(() => {
         scrollToSection(href);
       }, 50);
     } else {
       navigate('/');
-      // Wait for navigation and initial render to complete before scrolling
       setTimeout(() => {
         scrollToSection(href);
       }, 300);
@@ -61,6 +74,7 @@ const Navbar = () => {
           onClick={() => {
             if (isHomePage) {
               window.scrollTo({ top: 0, behavior: 'smooth' });
+              setActiveSection('home');
             } else {
               navigate('/');
               window.scrollTo(0, 0);
@@ -72,7 +86,10 @@ const Navbar = () => {
           aria-label="Leo Club of SUSL Home"
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
-              if (isHomePage) window.scrollTo({ top: 0, behavior: 'smooth' });
+              if (isHomePage) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setActiveSection('home');
+              }
               else navigate('/');
             }
           }}
@@ -80,15 +97,15 @@ const Navbar = () => {
           <img
             src="/Images/Round_logo.png"
             alt="Leo Club Round Logo"
-            className="w-12 h-12 lg:w-14 lg:h-14 object-contain drop-shadow-md transition-transform group-hover:scale-105"
+            className="w-10 h-10 lg:w-12 lg:h-12 object-contain drop-shadow-md transition-transform group-hover:scale-105"
           />
-          <div className={`font-bold tracking-tighter flex flex-col items-start leading-tight ${isSolid ? 'text-[var(--color-leo-maroon)] dark:text-white' : 'text-white'}`}>
-            <span className="text-xl lg:text-2xl">LEO CLUB</span>
-            <span className="text-xs lg:text-sm font-medium opacity-90">Sabaragamuwa University of Sri Lanka</span>
+          <div className={`flex flex-col items-start leading-none transition-colors duration-300 ${isSolid ? 'text-[var(--color-leo-maroon)] dark:text-white' : 'text-white'}`}>
+            <span className="text-lg lg:text-2xl font-black tracking-tighter uppercase">LEO CLUB</span>
+            <span className={`text-[8px] lg:text-[10px] font-bold uppercase tracking-[0.1em] ${isSolid ? 'text-[var(--color-leo-gold)]' : 'text-[var(--color-leo-gold)]'}`}>
+              Sabaragamuwa University of Sri Lanka
+            </span>
           </div>
         </div>
-
-
 
         {/* Desktop Menu */}
         <ul className="hidden lg:flex items-center space-x-8 list-none m-0 p-0">
@@ -96,10 +113,14 @@ const Navbar = () => {
             <li key={link.name}>
               <button
                 onClick={() => handleNavClick(link.href)}
-                className={`group relative cursor-pointer font-medium transition-colors bg-transparent border-none ${isSolid ? 'text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-maroon)]' : 'text-white/90 hover:text-white'}`}
+                className={`group relative cursor-pointer font-semibold text-sm transition-colors bg-transparent border-none py-2 ${
+                  activeSection === link.href 
+                    ? (isSolid ? 'text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]' : 'text-[var(--color-leo-gold)]')
+                    : isSolid ? 'text-gray-600 dark:text-gray-300 hover:text-[var(--color-leo-maroon)]' : 'text-white/90 hover:text-white'
+                }`}
               >
                 {link.name}
-                <span className={`absolute -bottom-1 left-0 w-0 h-0.5 bg-[var(--color-leo-gold)] transition-all duration-300 group-hover:w-full`}></span>
+                <span className={`absolute -bottom-1 left-0 h-0.5 bg-[var(--color-leo-gold)] transition-all duration-300 ${activeSection === link.href ? 'w-full' : 'w-0 group-hover:w-full'}`}></span>
               </button>
             </li>
           ))}
@@ -129,7 +150,7 @@ const Navbar = () => {
 
           <button 
             onClick={() => setIsOpen(!isOpen)} 
-            className={`flex items-center justify-center ${isSolid ? 'text-gray-700 dark:text-white' : 'text-white'}`} 
+            className={`flex items-center justify-center p-2 rounded-lg ${isSolid ? 'text-gray-700 dark:text-white hover:bg-gray-100' : 'text-white hover:bg-white/10'}`} 
             aria-label={isOpen ? "Close menu" : "Open menu"}
             aria-expanded={isOpen}
           >
@@ -145,16 +166,21 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800"
+            className="lg:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 overflow-hidden shadow-2xl"
           >
-            <ul className="flex flex-col items-center py-4 space-y-4 list-none m-0 p-0">
+            <ul className="flex flex-col py-4 list-none m-0 p-0">
               {NAV_LINKS.map((link) => (
                 <li key={link.name} className="w-full">
                   <button
                     onClick={() => handleNavClick(link.href)}
-                    className="w-full text-center py-2 text-gray-700 dark:text-gray-300 hover:text-[var(--color-leo-gold)] cursor-pointer font-medium text-xl bg-transparent border-none active:bg-gray-100 dark:active:bg-slate-800 transition-colors"
+                    className={`w-full text-left px-8 py-4 font-bold text-lg cursor-pointer transition-all flex items-center justify-between group ${
+                      activeSection === link.href
+                        ? 'bg-[var(--color-leo-maroon)] text-white'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800'
+                    }`}
                   >
-                    {link.name}
+                    <span>{link.name}</span>
+                    {activeSection === link.href && <ArrowRight size={20} />}
                   </button>
                 </li>
               ))}
@@ -162,7 +188,6 @@ const Navbar = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
     </nav>
   );
 };

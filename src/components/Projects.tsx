@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Calendar, Users, ArrowRight, Clock, Loader2, X } from 'lucide-react';
+import { Calendar, Users, ArrowRight, Clock, X } from 'lucide-react';
 
 const Projects = () => {
   const { projects, loading, error } = useData();
@@ -29,9 +29,23 @@ const Projects = () => {
     return (
       <section id="projects" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
         <div className="container mx-auto px-6">
-          <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <Loader2 className="w-12 h-12 text-[var(--color-leo-maroon)] animate-spin mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Loading projects...</p>
+          <div className="text-center mb-12">
+            <div className="h-10 w-48 bg-gray-200 dark:bg-slate-800 rounded-lg mx-auto mb-4 skeleton"></div>
+            <div className="w-20 h-1 bg-[var(--color-leo-gold)] mx-auto rounded-full"></div>
+          </div>
+          <div className="flex gap-8 overflow-hidden pb-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex-none w-80 md:w-96 bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm h-[500px]">
+                <div className="h-56 bg-gray-200 dark:bg-slate-700 skeleton"></div>
+                <div className="p-6 space-y-4">
+                  <div className="h-6 w-3/4 bg-gray-200 dark:bg-slate-700 rounded skeleton"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-gray-200 dark:bg-slate-700 rounded skeleton"></div>
+                    <div className="h-4 w-full bg-gray-200 dark:bg-slate-700 rounded skeleton"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -42,14 +56,17 @@ const Projects = () => {
     return (
       <section id="projects" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
         <div className="container mx-auto px-6">
-          <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+          <div className="flex flex-col items-center justify-center min-h-[400px] bg-red-50 dark:bg-red-900/10 rounded-3xl p-12 border border-red-100 dark:border-red-900/20">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6">
+              <X className="text-red-600 dark:text-red-400" size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Failed to load projects</h3>
+            <p className="text-red-600 dark:text-red-400 mb-8 max-w-sm text-center">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              aria-label="Retry loading projects"
-              className="px-6 py-2 bg-[var(--color-leo-maroon)] text-white rounded-lg hover:bg-red-900 transition-colors"
+              className="px-8 py-3 bg-[var(--color-leo-maroon)] text-white rounded-full font-bold hover:bg-red-900 transition-all shadow-lg hover:translate-y-[-2px] active:translate-y-0 cursor-pointer"
             >
-              Retry
+              Try Again
             </button>
           </div>
         </div>
@@ -93,75 +110,89 @@ const Projects = () => {
             viewport={{ once: true }}
           >
             <AnimatePresence mode='popLayout'>
-              {filteredProjects
-                .sort((a, b) => {
-                  const dateA = a.date ? new Date(a.date).getTime() : 0;
-                  const dateB = b.date ? new Date(b.date).getTime() : 0;
-                  return dateB - dateA;
-                })
-                .map((project) => (
-                  <motion.div
-                    layout
-                    key={project.id}
-                    initial={{ opacity: 0, x: 50 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    onClick={() => setSelectedProject(project)}
-                    className="flex-none w-80 md:w-96 snap-center bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col border border-gray-100 dark:border-slate-700 h-[500px] cursor-pointer"
-                  >
-                    <div className="relative h-56 overflow-hidden shrink-0">
-                      <img
-                        src={project.image}
-                        alt={project.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        loading="lazy"
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
-                      />
-                      <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] uppercase tracking-wider">
-                        {project.category}
+              {filteredProjects.length > 0 ? (
+                filteredProjects
+                  .sort((a, b) => {
+                    const dateA = a.date ? new Date(a.date).getTime() : 0;
+                    const dateB = b.date ? new Date(b.date).getTime() : 0;
+                    return dateB - dateA;
+                  })
+                  .map((project) => (
+                    <motion.div
+                      layout
+                      key={project.id}
+                      initial={{ opacity: 0, x: 50 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      onClick={() => setSelectedProject(project)}
+                      className="flex-none w-80 md:w-96 snap-center bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col border border-gray-100 dark:border-slate-700 h-[500px] cursor-pointer"
+                    >
+                      <div className="relative h-56 overflow-hidden shrink-0">
+                        <img
+                          src={project.image}
+                          alt={project.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          loading="lazy"
+                          onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                        />
+                        <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] uppercase tracking-wider">
+                          {project.category}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="p-6 flex flex-col flex-grow">
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 line-clamp-1">{project.title}</h3>
-                      <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-4 flex-grow text-sm">{project.description}</p>
+                      <div className="p-6 flex flex-col flex-grow">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 line-clamp-1">{project.title}</h3>
+                        <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-4 flex-grow text-sm">{project.description}</p>
 
-                      <div className="space-y-3 mt-auto">
-                        {project.date && (
-                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                            <Calendar size={16} className="mr-2 text-[var(--color-leo-gold)]" />
-                            <span>{project.date}</span>
-                          </div>
-                        )}
-                        
-                        {project.committee && project.committee.length > 0 && (
-                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                            <Users size={16} className="mr-2 text-[var(--color-leo-gold)]" />
-                            <span className="line-clamp-1">{project.committee.join(", ")}</span>
-                          </div>
-                        )}
+                        <div className="space-y-3 mt-auto">
+                          {project.date && (
+                            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                              <Calendar size={16} className="mr-2 text-[var(--color-leo-gold)]" />
+                              <span>{project.date}</span>
+                            </div>
+                          )}
+                          
+                          {project.committee && project.committee.length > 0 && (
+                            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                              <Users size={16} className="mr-2 text-[var(--color-leo-gold)]" />
+                              <span className="line-clamp-1">{project.committee.join(", ")}</span>
+                            </div>
+                          )}
 
-                        {project.category === 'Ongoing' && project.status && (
-                          <div className="flex items-center text-sm text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] font-medium">
-                            <Clock size={16} className="mr-2" />
-                            <span>{project.status}</span>
-                          </div>
-                        )}
+                          {project.category === 'Ongoing' && project.status && (
+                            <div className="flex items-center text-sm text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] font-medium">
+                              <Clock size={16} className="mr-2" />
+                              <span>{project.status}</span>
+                            </div>
+                          )}
 
-                        {project.category === 'Upcoming' && project.registrationLink && (
-                          <a
-                            href={project.registrationLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center w-full bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] py-2 rounded-lg font-bold hover:bg-[#eec136] transition-colors"
-                          >
-                            Join Project <ArrowRight size={16} className="ml-2" />
-                          </a>
-                        )}
+                          {project.category === 'Upcoming' && project.registrationLink && (
+                            <a
+                              href={project.registrationLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center w-full bg-[var(--color-leo-gold)] text-[var(--color-leo-maroon)] py-2 rounded-lg font-bold hover:bg-[#eec136] transition-colors"
+                            >
+                              Join Project <ArrowRight size={16} className="ml-2" />
+                            </a>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  ))
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="w-full py-20 flex flex-col items-center justify-center text-center"
+                >
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                    <Calendar className="text-gray-400" size={32} />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No projects found</h3>
+                  <p className="text-gray-500 dark:text-gray-400 max-w-xs">We don't have any projects in this category at the moment. Check back soon!</p>
+                </motion.div>
+              )}
             </AnimatePresence>
           </motion.div>
 

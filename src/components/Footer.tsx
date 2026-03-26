@@ -11,8 +11,9 @@ const Footer = () => {
           
           {/* Left Side: Club Info */}
           <div className="text-center lg:text-left">
-            <h2 className="font-bold text-lg md:text-xl mb-1 text-slate-800 dark:text-white">{siteContent.footer_club_name}</h2>
-            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-medium">{siteContent.footer_sponsor}</p>
+            <h2 className="font-bold text-lg md:text-xl mb-1 text-slate-800 dark:text-white uppercase tracking-tight">Leo Club</h2>
+            <p className="text-[10px] md:text-sm text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Sabaragamuwa University of Sri Lanka</p>
+            <p className="text-[9px] md:text-xs text-gray-400 dark:text-gray-500 font-medium mt-1">Sponsored by Lions Club of Balangoda</p>
           </div>
 
           {/* Right Side: Copyright & Logo */}
@@ -27,7 +28,7 @@ const Footer = () => {
             <div className="hidden md:block w-px h-8 bg-gray-300 dark:bg-slate-700" aria-hidden="true"></div>
             
             <img 
-              src="/Images/Leo_LogoLine.png" 
+              src={siteContent.footer_logo || "/Images/Leo_LogoLine.png"} 
               alt="Leo Logo Line" 
               className="h-8 md:h-10 lg:h-12 w-auto object-contain bg-white dark:bg-white/95 p-1.5 md:p-2 rounded-lg shadow-sm"
               loading="lazy"

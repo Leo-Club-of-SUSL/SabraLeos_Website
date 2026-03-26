@@ -45,6 +45,7 @@ const transformLeadershipFromDB = (dbMember: LeadershipMemberDB): LeadershipMemb
     year: dbMember.year,
     serviceYear: dbMember.service_year,
     sortOrder: dbMember.sort_order || 0,
+    rowNumber: dbMember.row_number || 1,
 });
 
 /**
@@ -61,6 +62,7 @@ const transformLeadershipToDB = (
     year: member.year || new Date().getFullYear() + '/' + (new Date().getFullYear() + 1),
     service_year: member.serviceYear,
     sort_order: member.sortOrder || 0,
+    row_number: member.rowNumber || 1,
 });
 
 /**
