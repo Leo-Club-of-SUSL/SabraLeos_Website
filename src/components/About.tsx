@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Target, Eye, History, Award, Users, Heart } from 'lucide-react';
+import { Target, Eye, Award, Users, Heart } from 'lucide-react';
 
 const About = () => {
   const { siteContent } = useData();
