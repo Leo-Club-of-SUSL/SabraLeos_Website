@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { ChangeEvent, ReactNode, FormEvent, ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, 
@@ -177,7 +178,7 @@ const AdminDashboard = () => {
   };
 
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       if (isBulkUpload && activeTab === 'gallery') {
         setSelectedFiles(Array.from(e.target.files));
@@ -230,9 +231,9 @@ const AdminDashboard = () => {
         try {
           // 1. Delete from storage first
           const imageUrl = item.image || item.image_url || item.src;
-          const bucket = activeTab === 'projects' ? 'projects' : 
-                         activeTab === 'leadership' ? 'leadership' :
-                         activeTab === 'content' ? 'site-content' : undefined;
+          const bucket = activeTab === 'projects' ? (import.meta.env.VITE_SUPABASE_BUCKET_PROJECTS || 'projects') : 
+                         activeTab === 'leadership' ? (import.meta.env.VITE_SUPABASE_BUCKET_LEADERSHIP || 'leadership') :
+                         activeTab === 'content' ? (import.meta.env.VITE_SUPABASE_BUCKET_CONTENT || 'site-content') : undefined;
           
           if (imageUrl) {
             await imageService.deleteFromStorage(imageUrl, bucket);
@@ -258,7 +259,7 @@ const AdminDashboard = () => {
   };
 
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     
@@ -319,8 +320,11 @@ const AdminDashboard = () => {
             }
           } else {
             // Supabase
-            const bucket = activeTab === 'projects' ? 'projects' : 
-                           activeTab === 'leadership' ? 'leadership' : 'site-content';
+            const bucket = activeTab === 'projects' 
+              ? (import.meta.env.VITE_SUPABASE_BUCKET_PROJECTS || 'projects') 
+              : activeTab === 'leadership' 
+                ? (import.meta.env.VITE_SUPABASE_BUCKET_LEADERSHIP || 'leadership') 
+                : (import.meta.env.VITE_SUPABASE_BUCKET_CONTENT || 'site-content');
             const customName = activeTab === 'projects' ? projectForm.title : 
                                activeTab === 'leadership' ? memberForm.name : undefined;
             uploadedUrl = await imageService.uploadToSupabase(fileToUpload, bucket, customName, setUploadProgress);
@@ -328,8 +332,11 @@ const AdminDashboard = () => {
 
           // If updating and we have a new image, delete the old one from storage
           if (editingItem && oldImageUrl) {
-            const bucket = activeTab === 'projects' ? 'projects' : 
-                           activeTab === 'leadership' ? 'leadership' : undefined;
+            const bucket = activeTab === 'projects' 
+              ? (import.meta.env.VITE_SUPABASE_BUCKET_PROJECTS || 'projects')
+              : activeTab === 'leadership' 
+                ? (import.meta.env.VITE_SUPABASE_BUCKET_LEADERSHIP || 'leadership') 
+                : undefined;
             await imageService.deleteFromStorage(oldImageUrl, bucket);
           }
 
@@ -472,11 +479,12 @@ const AdminDashboard = () => {
         if (file) {
           // Delete old image if exists
           const oldUrl = siteContent[key];
+          const bucket = import.meta.env.VITE_SUPABASE_BUCKET_CONTENT || 'site-content';
           if (oldUrl) {
-            await imageService.deleteFromStorage(oldUrl, 'site-content');
+            await imageService.deleteFromStorage(oldUrl, bucket);
           }
           
-          const uploadedUrl = await imageService.uploadToSupabase(file, 'site-content');
+          const uploadedUrl = await imageService.uploadToSupabase(file, bucket);
           entries[key] = uploadedUrl;
         }
       }
@@ -555,7 +563,7 @@ const AdminDashboard = () => {
   };
 
   const getEventBadge = (type: string) => {
-    const map: Record<string, { icon: React.ElementType; label: string; cls: string }> = {
+    const map: Record<string, { icon: ElementType; label: string; cls: string }> = {
       login_success: { icon: CheckCircle, label: 'Success', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
       login_failed: { icon: XCircle, label: 'Failed', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
       brute_force_detected: { icon: AlertTriangle, label: 'Brute Force', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
@@ -1282,6 +1290,7 @@ const AdminDashboard = () => {
                 <ImageUploadField 
                   label="Image" 
                   onFileChange={handleFileChange}
+                  onClear={() => setSelectedFile(null)}
                   selectedFile={selectedFile}
                   uploading={uploadingImage}
                   progress={uploadProgress}
@@ -1316,6 +1325,7 @@ const AdminDashboard = () => {
                 <ImageUploadField 
                   label="Image" 
                   onFileChange={handleFileChange}
+                  onClear={() => setSelectedFile(null)}
                   selectedFile={selectedFile}
                   uploading={uploadingImage}
                   progress={uploadProgress}
@@ -1342,6 +1352,7 @@ const AdminDashboard = () => {
                 <ImageUploadField 
                   label={isBulkUpload ? "Select Images" : "Image"} 
                   onFileChange={handleFileChange}
+                  onClear={() => isBulkUpload ? setSelectedFiles([]) : setSelectedFile(null)}
                   selectedFile={isBulkUpload ? null : selectedFile}
                   multiple={isBulkUpload}
                   uploading={uploadingImage}
@@ -1382,6 +1393,7 @@ const AdminDashboard = () => {
                 <ImageUploadField 
                   label="Award Image" 
                   onFileChange={handleFileChange}
+                  onClear={() => setSelectedFile(null)}
                   selectedFile={selectedFile}
                   uploading={uploadingImage}
                   progress={uploadProgress}
@@ -1484,66 +1496,75 @@ const AdminDashboard = () => {
 // ================================================================
 // Helpers
 // ================================================================
-const FormField = ({ label, children }: { label: string; children: React.ReactNode }) => (
+const FormField = ({ label, children }: { label: string; children: ReactNode }) => (
   <div>
     <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{label}</label>
     {children}
   </div>
 );
 
-const ImageUploadField = ({ label, onFileChange, selectedFile, uploading, multiple, progress = 0 }: any) => (
-  <FormField label={label}>
-    <div className="space-y-4">
-      <label className={`cursor-pointer w-full p-8 rounded-2xl transition-all flex flex-col items-center justify-center border-2 border-dashed relative overflow-hidden ${
-        selectedFile || multiple ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-gray-50 dark:bg-slate-700/40 border-gray-200 dark:border-slate-600 text-gray-400 hover:border-[var(--color-leo-maroon)] hover:text-[var(--color-leo-maroon)]'
-      }`}>
+const ImageUploadField = ({ label, onFileChange, onClear, selectedFile, uploading, multiple, progress = 0 }: any) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleClear = () => {
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    onClear();
+  };
+
+  return (
+    <FormField label={label}>
+      <div className="space-y-4">
+        <label className={`cursor-pointer w-full p-8 rounded-2xl transition-all flex flex-col items-center justify-center border-2 border-dashed relative overflow-hidden ${
+          selectedFile || multiple ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-gray-50 dark:bg-slate-700/40 border-gray-200 dark:border-slate-600 text-gray-400 hover:border-[var(--color-leo-maroon)] hover:text-[var(--color-leo-maroon)]'
+        }`}>
+          {uploading && (
+            <motion.div 
+              initial={{ height: 0 }}
+              animate={{ height: `${progress || 30}%` }}
+              className="absolute bottom-0 left-0 w-full bg-emerald-500/10 pointer-events-none transition-all duration-300"
+            />
+          )}
+
+          {uploading ? (
+            <div className="relative z-10 flex flex-col items-center">
+              <Loader2 size={32} className="animate-spin text-[var(--color-leo-maroon)] mb-2" />
+              <span className="text-sm font-black text-[var(--color-leo-maroon)] uppercase tracking-widest">
+                {progress > 0 ? `${progress}% Uploaded` : 'Processing...'}
+              </span>
+            </div>
+          ) : (
+            <div className="relative z-10 flex flex-col items-center">
+              <ImagePlus size={32} className="mb-2" />
+              <span className="text-sm font-bold">{selectedFile ? 'Replace Image' : multiple ? 'Select Image' : 'Select Image to Upload'}</span>
+              <span className="text-[10px] opacity-60 mt-1">PNG, JPG or WebP (Max 10MB)</span>
+            </div>
+          )}
+          <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={onFileChange} disabled={uploading} multiple={multiple} />
+        </label>
+
         {uploading && (
-          <motion.div 
-            initial={{ height: 0 }}
-            animate={{ height: `${progress || 30}%` }}
-            className="absolute bottom-0 left-0 w-full bg-emerald-500/10 pointer-events-none transition-all duration-300"
-          />
-        )}
-
-        {uploading ? (
-          <div className="relative z-10 flex flex-col items-center">
-            <Loader2 size={32} className="animate-spin text-[var(--color-leo-maroon)] mb-2" />
-            <span className="text-sm font-black text-[var(--color-leo-maroon)] uppercase tracking-widest">
-              {progress > 0 ? `${progress}% Uploaded` : 'Processing...'}
-            </span>
-          </div>
-        ) : (
-          <div className="relative z-10 flex flex-col items-center">
-            <ImagePlus size={32} className="mb-2" />
-            <span className="text-sm font-bold">{selectedFile ? 'Replace Image' : multiple ? 'Select Multiple Images' : 'Select Image to Upload'}</span>
-            <span className="text-[10px] opacity-60 mt-1">PNG, JPG or WebP (Max 10MB)</span>
+          <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${progress || 30}%` }}
+              className="h-full bg-gradient-to-r from-[var(--color-leo-maroon)] to-[var(--color-leo-gold)]"
+            />
           </div>
         )}
-        <input type="file" className="hidden" accept="image/*" onChange={onFileChange} disabled={uploading} multiple={multiple} />
-      </label>
-
-      {uploading && (
-        <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: `${progress || 30}%` }}
-            className="h-full bg-gradient-to-r from-[var(--color-leo-maroon)] to-[var(--color-leo-gold)]"
-          />
-        </div>
-      )}
-      
-      {selectedFile && !uploading && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-100 dark:border-slate-700">
-          <Image size={14} className="text-gray-400" />
-          <span className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 font-medium">{selectedFile.name}</span>
-          <button type="button" onClick={() => onFileChange({ target: { files: null } } as any)} className="text-gray-400 hover:text-red-500 transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-      )}
-    </div>
-  </FormField>
-);
+        
+        {selectedFile && !uploading && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-100 dark:border-slate-700">
+            <Image size={14} className="text-gray-400" />
+            <span className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 font-medium">{selectedFile.name}</span>
+            <button type="button" onClick={handleClear} className="text-gray-400 hover:text-red-500 transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+    </FormField>
+  );
+};
 
 const EmptyState = ({ icon: Icon, text, sub }: { icon: any; text: string; sub: string }) => (
   <div className="text-center py-16">

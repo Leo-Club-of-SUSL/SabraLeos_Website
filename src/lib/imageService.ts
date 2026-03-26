@@ -14,13 +14,16 @@ export const imageService = {
   async uploadToSupabase(file: File, bucket: string, customName?: string, onProgress?: (p: number) => void): Promise<string> {
     try {
       if (onProgress) onProgress(10);
+      console.log(`Original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
       const compressed = await imageCompression(file, compressionOptions);
+      console.log(`Compressed size: ${(compressed.size / 1024 / 1024).toFixed(2)} MB`);
       if (onProgress) onProgress(40);
       
       const fileExt = file.name.split('.').pop();
       const baseName = customName ? customName.replace(/[^a-z0-9]/gi, '_').toLowerCase() : Date.now().toString();
       const fileName = `${baseName}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
       
+      console.log(`Uploading to Supabase bucket: ${bucket}, fileName: ${fileName}`);
       const { error } = await supabase.storage
         .from(bucket)
         .upload(fileName, compressed);
@@ -45,7 +48,9 @@ export const imageService = {
   async uploadToCloudinary(file: File, customName?: string, onProgress?: (p: number) => void): Promise<string> {
     try {
       if (onProgress) onProgress(10);
+      console.log(`Original size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
       const compressed = await imageCompression(file, compressionOptions);
+      console.log(`Compressed size: ${(compressed.size / 1024 / 1024).toFixed(2)} MB`);
       if (onProgress) onProgress(30);
       
       const formData = new FormData();
