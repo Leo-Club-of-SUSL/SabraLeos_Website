@@ -114,6 +114,22 @@ ALTER TABLE leadership DISABLE ROW LEVEL SECURITY;
 - Verify the API calls in the browser Network tab
 - Look for error messages in the console
 
+## Step 6: Create Storage Buckets
+
+To allow image uploads for Projects and Leadership members, you MUST manually create three storage buckets in the Supabase Dashboard:
+
+1.  Go to **Storage** (left sidebar)
+2.  Click **New Bucket**
+3.  Create the following three buckets:
+    - **`projects`**
+    - **`leadership`**
+    - **`site-content`**
+4.  **CRITICAL**: Make sure each bucket's "Public" toggle is **ON**.
+5.  (Optional) If you want to use custom names, you can define them in your `.env` file:
+    - `VITE_SUPABASE_BUCKET_PROJECTS=your_custom_name`
+    - `VITE_SUPABASE_BUCKET_LEADERSHIP=your_custom_name`
+    - `VITE_SUPABASE_BUCKET_CONTENT=your_custom_name`
+
 ## Next Steps
 
 1. **Add Authentication**: Implement Supabase Auth for secure admin access
