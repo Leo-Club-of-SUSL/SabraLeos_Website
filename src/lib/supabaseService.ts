@@ -596,22 +596,27 @@ export const messagesAPI = {
      * Submit a contact form message
      */
     async create(message: Omit<ContactMessage, 'id' | 'createdAt'>): Promise<ContactMessage> {
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('contact_messages')
             .insert([{
                 name: message.name,
                 email: message.email,
                 message: message.message
-            }])
-            .select()
-            .single();
+            }]);
 
         if (error) {
             console.error('Error submitting message:', error);
             throw error;
         }
 
-        return transformMessageFromDB(data);
+        // We return a mock object since select() might not return much for anon users
+        return {
+            id: -1,
+            name: message.name,
+            email: message.email,
+            message: message.message,
+            createdAt: new Date().toISOString()
+        };
     },
 
     /**

@@ -37,8 +37,8 @@ const Hero = () => {
             />
           )}
         </AnimatePresence>
-        <div className="absolute inset-0 bg-[var(--color-leo-maroon)]/80 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-[var(--color-leo-maroon)]/40 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-black/40" />
       </div>
 
       <div className="container mx-auto px-6 relative z-10 text-center text-white">
