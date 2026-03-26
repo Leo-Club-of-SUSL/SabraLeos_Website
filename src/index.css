@@ -167,3 +167,13 @@ html {
 .dark::view-transition-old(root) {
   animation: peel-off 1s ease-in-out;
 }
+
+/* Custom Premium Animations */
+@keyframes pulse-slow {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
