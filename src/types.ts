@@ -20,6 +20,7 @@ export interface LeadershipMemberDB {
     service_year?: string; // e.g. "2022/2023" for past presidents
     created_at: string;
     sort_order?: number;
+    row_number?: number;
 }
 
 export interface SiteContentDB {
@@ -88,6 +89,7 @@ export interface LeadershipMember {
     year?: string;
     serviceYear?: string;
     sortOrder?: number;
+    rowNumber?: number;
 }
 
 export interface GalleryImage {

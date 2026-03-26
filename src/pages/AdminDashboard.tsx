@@ -12,7 +12,7 @@ import { messagesAPI } from '../lib/supabaseService';
 import AnalyticsWidget from '../components/admin/AnalyticsWidget';
 
 
-import { Reorder } from 'framer-motion';
+import { Reorder, motion } from 'framer-motion';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '../lib/cropImage';
 import { useData } from '../context/DataContext';
@@ -69,8 +69,7 @@ const SECTION_FIELDS: Record<string, { key: string; label: string; type: 'text' 
     { key: 'contact_linkedin', label: 'LinkedIn URL', type: 'url' },
   ],
   footer: [
-    { key: 'footer_club_name', label: 'Club Name', type: 'text' },
-    { key: 'footer_sponsor', label: 'Sponsor Text', type: 'text' },
+    { key: 'footer_logo', label: 'Footer Logo (Horizontal)', type: 'image' },
   ],
 };
 
@@ -109,11 +108,12 @@ const AdminDashboard = () => {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
 
   // Form States
   const [projectForm, setProjectForm] = useState<Partial<Project>>({ category: 'Upcoming', status: 'Active' });
-  const [memberForm, setMemberForm] = useState<Partial<LeadershipMember>>({ type: 'executive' });
+  const [memberForm, setMemberForm] = useState<Partial<LeadershipMember>>({ type: 'executive', rowNumber: 1 });
   const [imageForm, setImageForm] = useState<Partial<GalleryImage>>({ showOnHome: false, sortOrder: 0 });
   const [awardForm, setAwardForm] = useState<Partial<Award>>({});
 
@@ -146,7 +146,7 @@ const AdminDashboard = () => {
   // ---- Handlers ----
   const resetForms = () => {
     setProjectForm({ category: 'Upcoming', status: 'Active' });
-    setMemberForm({ type: 'executive' });
+    setMemberForm({ type: 'executive', rowNumber: 1 });
     setImageForm({ showOnHome: false, sortOrder: 0 });
     setAwardForm({});
     setContentFiles({});
@@ -274,12 +274,16 @@ const AdminDashboard = () => {
       // Handle Image Upload if files are selected
       if ((selectedFile || selectedFiles.length > 0)) {
         setUploadingImage(true);
+        setUploadProgress(0);
         try {
           if (activeTab === 'gallery' && isBulkUpload && selectedFiles.length > 0) {
             // Bulk Upload for Gallery
             const uploadPromises = selectedFiles.map(async (file, index) => {
               const customName = `${imageForm.alt || 'gallery'}-${index + 1}`;
-              const url = await imageService.uploadToCloudinary(file, customName);
+              const url = await imageService.uploadToCloudinary(file, customName, (p) => {
+                // For bulk, we show the overall progress of the current file roughly
+                setUploadProgress(Math.round(((index + (p/100)) / selectedFiles.length) * 100));
+              });
               // Force showOnHome false for all new uploads (to Library)
               const finalForm = { ...imageForm, src: url, showOnHome: false };
               return addImage(finalForm as Omit<GalleryImage, 'id'>);
@@ -302,7 +306,7 @@ const AdminDashboard = () => {
           if (activeTab === 'gallery' || activeTab === 'awards') {
             // Cloudinary
             const customName = activeTab === 'gallery' ? imageForm.alt : awardForm.title;
-            uploadedUrl = await imageService.uploadToCloudinary(fileToUpload, customName);
+            uploadedUrl = await imageService.uploadToCloudinary(fileToUpload, customName, setUploadProgress);
 
             // Double upload for awards if we have a crop
             if (activeTab === 'awards' && selectedThumbnail) {
@@ -319,7 +323,7 @@ const AdminDashboard = () => {
                            activeTab === 'leadership' ? 'leadership' : 'site-content';
             const customName = activeTab === 'projects' ? projectForm.title : 
                                activeTab === 'leadership' ? memberForm.name : undefined;
-            uploadedUrl = await imageService.uploadToSupabase(fileToUpload, bucket, customName);
+            uploadedUrl = await imageService.uploadToSupabase(fileToUpload, bucket, customName, setUploadProgress);
           }
 
           // If updating and we have a new image, delete the old one from storage
@@ -338,6 +342,7 @@ const AdminDashboard = () => {
           return;
         } finally {
           setUploadingImage(false);
+          setUploadProgress(0);
         }
       }
 
@@ -774,7 +779,12 @@ const AdminDashboard = () => {
                               <img src={member.image} alt="" className="w-11 h-11 rounded-full object-cover shrink-0 pointer-events-none" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-sm text-gray-800 dark:text-white truncate">{member.name}</p>
-                                <p className="text-xs text-gray-400 truncate">{member.position} {member.type === 'past_president' && `(${member.serviceYear})`}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-xs text-gray-400 truncate">{member.position} {member.type === 'past_president' && `(${member.serviceYear})`}</p>
+                                  {groupType === 'executive' && (
+                                    <span className="text-[9px] px-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded font-black uppercase tracking-tighter">Line {member.rowNumber || 1}</span>
+                                  )}
+                                </div>
                               </div>
                               <div className="flex gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity items-center">
                                 <div className="flex flex-col gap-0.5 border-r border-gray-200 dark:border-slate-700 pr-2 mr-1">
@@ -1274,6 +1284,7 @@ const AdminDashboard = () => {
                   onFileChange={handleFileChange}
                   selectedFile={selectedFile}
                   uploading={uploadingImage}
+                  progress={uploadProgress}
                 />
 
                 <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : projectForm.image} />
@@ -1290,6 +1301,15 @@ const AdminDashboard = () => {
                     <option value="past_president">Past President</option>
                   </select>
                 </FormField>
+                {memberForm.type === 'executive' && (
+                  <FormField label="Arrange in Line (Row)">
+                    <select className={inputCls} value={memberForm.rowNumber || 1} onChange={e => setMemberForm({ ...memberForm, rowNumber: parseInt(e.target.value) })}>
+                      <option value={1}>Line 1 (Top)</option>
+                      <option value={2}>Line 2 (Middle)</option>
+                      <option value={3}>Line 3 (Bottom)</option>
+                    </select>
+                  </FormField>
+                )}
                 {memberForm.type === 'past_president' && (
                   <FormField label="Service Year"><input required className={inputCls} value={memberForm.serviceYear || ''} onChange={e => setMemberForm({ ...memberForm, serviceYear: e.target.value })} placeholder="e.g. 2022/2023" /></FormField>
                 )}
@@ -1298,6 +1318,7 @@ const AdminDashboard = () => {
                   onFileChange={handleFileChange}
                   selectedFile={selectedFile}
                   uploading={uploadingImage}
+                  progress={uploadProgress}
                 />
 
                 <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : memberForm.image} />
@@ -1324,6 +1345,7 @@ const AdminDashboard = () => {
                   selectedFile={isBulkUpload ? null : selectedFile}
                   multiple={isBulkUpload}
                   uploading={uploadingImage}
+                  progress={uploadProgress}
                 />
                 
                 {isBulkUpload && selectedFiles.length > 0 && (
@@ -1362,6 +1384,7 @@ const AdminDashboard = () => {
                   onFileChange={handleFileChange}
                   selectedFile={selectedFile}
                   uploading={uploadingImage}
+                  progress={uploadProgress}
                 />
 
                 <ImagePreview url={selectedFile ? URL.createObjectURL(selectedFile) : awardForm.image} />
@@ -1468,25 +1491,49 @@ const FormField = ({ label, children }: { label: string; children: React.ReactNo
   </div>
 );
 
-const ImageUploadField = ({ label, onFileChange, selectedFile, uploading, multiple }: any) => (
+const ImageUploadField = ({ label, onFileChange, selectedFile, uploading, multiple, progress = 0 }: any) => (
   <FormField label={label}>
-    <div className="space-y-2">
-      <label className={`cursor-pointer w-full p-8 rounded-xl transition-all flex flex-col items-center justify-center border-2 border-dashed ${
+    <div className="space-y-4">
+      <label className={`cursor-pointer w-full p-8 rounded-2xl transition-all flex flex-col items-center justify-center border-2 border-dashed relative overflow-hidden ${
         selectedFile || multiple ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-gray-50 dark:bg-slate-700/40 border-gray-200 dark:border-slate-600 text-gray-400 hover:border-[var(--color-leo-maroon)] hover:text-[var(--color-leo-maroon)]'
       }`}>
-        {uploading ? (
-          <Loader2 size={32} className="animate-spin text-[var(--color-leo-maroon)]" />
-        ) : (
-          <ImagePlus size={32} className="mb-2" />
+        {uploading && (
+          <motion.div 
+            initial={{ height: 0 }}
+            animate={{ height: `${progress || 30}%` }}
+            className="absolute bottom-0 left-0 w-full bg-emerald-500/10 pointer-events-none transition-all duration-300"
+          />
         )}
-        <span className="text-sm font-bold">{selectedFile ? 'Replace Image' : multiple ? 'Select Multiple Images' : 'Select Image to Upload'}</span>
-        <span className="text-[10px] opacity-60 mt-1">PNG, JPG or WebP (Max 10MB)</span>
+
+        {uploading ? (
+          <div className="relative z-10 flex flex-col items-center">
+            <Loader2 size={32} className="animate-spin text-[var(--color-leo-maroon)] mb-2" />
+            <span className="text-sm font-black text-[var(--color-leo-maroon)] uppercase tracking-widest">
+              {progress > 0 ? `${progress}% Uploaded` : 'Processing...'}
+            </span>
+          </div>
+        ) : (
+          <div className="relative z-10 flex flex-col items-center">
+            <ImagePlus size={32} className="mb-2" />
+            <span className="text-sm font-bold">{selectedFile ? 'Replace Image' : multiple ? 'Select Multiple Images' : 'Select Image to Upload'}</span>
+            <span className="text-[10px] opacity-60 mt-1">PNG, JPG or WebP (Max 10MB)</span>
+          </div>
+        )}
         <input type="file" className="hidden" accept="image/*" onChange={onFileChange} disabled={uploading} multiple={multiple} />
       </label>
 
+      {uploading && (
+        <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${progress || 30}%` }}
+            className="h-full bg-gradient-to-r from-[var(--color-leo-maroon)] to-[var(--color-leo-gold)]"
+          />
+        </div>
+      )}
       
       {selectedFile && !uploading && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-100 dark:border-slate-600">
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-slate-700/40 rounded-lg border border-gray-100 dark:border-slate-700">
           <Image size={14} className="text-gray-400" />
           <span className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 font-medium">{selectedFile.name}</span>
           <button type="button" onClick={() => onFileChange({ target: { files: null } } as any)} className="text-gray-400 hover:text-red-500 transition-colors">
@@ -1494,17 +1541,9 @@ const ImageUploadField = ({ label, onFileChange, selectedFile, uploading, multip
           </button>
         </div>
       )}
-      
-      {uploading && (
-        <div className="flex items-center justify-center gap-2 py-2 text-xs text-[var(--color-leo-maroon)] font-bold animate-pulse">
-          <div className="w-1.5 h-1.5 bg-[var(--color-leo-maroon)] rounded-full animate-bounce" />
-          Optimizing & Uploading...
-        </div>
-      )}
     </div>
   </FormField>
 );
-
 
 const EmptyState = ({ icon: Icon, text, sub }: { icon: any; text: string; sub: string }) => (
   <div className="text-center py-16">

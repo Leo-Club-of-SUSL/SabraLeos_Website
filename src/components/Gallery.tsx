@@ -13,7 +13,7 @@ interface GalleryProps {
 }
 
 const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryProps) => {
-  const { gallery } = useData();
+  const { gallery, loading } = useData();
   const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -32,6 +32,24 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
     : homeGallery.slice(0, visibleCount);
   const hasMore = !limit && visibleCount < homeGallery.length;
 
+  if (loading && gallery.length === 0) {
+    return (
+      <section id="gallery" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <div className="h-10 w-48 bg-gray-200 dark:bg-slate-800 rounded-lg mx-auto mb-4 skeleton"></div>
+            <div className="w-20 h-1 bg-[var(--color-leo-gold)] mx-auto rounded-full"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className={`rounded-xl bg-gray-200 dark:bg-slate-800 skeleton ${i === 1 || i === 4 ? 'md:col-span-2 md:row-span-2' : ''}`}></div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id="gallery" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
       <div className="container mx-auto px-6">
@@ -49,28 +67,38 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
-          {displayedGallery.map((img, index) => (
-            <motion.div
-              key={img.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => enableLightbox && setSelectedImage(img.src)}
-              className={`relative overflow-hidden rounded-xl group ${index === 0 || index === 3 ? 'md:col-span-2 md:row-span-2' : ''} ${enableLightbox ? 'cursor-pointer' : ''}`}
-            >
-              <img
-                src={img.src}
-                alt={img.alt}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                loading="lazy"
-                onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
-              />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                <p className="text-white font-bold text-lg">{img.alt}</p>
+          {displayedGallery.length > 0 ? (
+            displayedGallery.map((img, index) => (
+              <motion.div
+                key={img.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                onClick={() => enableLightbox && setSelectedImage(img.src)}
+                className={`relative overflow-hidden rounded-xl group ${index === 0 || index === 3 ? 'md:col-span-2 md:row-span-2' : ''} ${enableLightbox ? 'cursor-pointer' : ''}`}
+              >
+                <img
+                  src={img.src}
+                  alt={img.alt}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/Images/Round_logo.png'; }}
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                  <p className="text-white font-bold text-lg">{img.alt}</p>
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
+              <div className="w-20 h-20 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                <X className="text-gray-400" size={32} />
               </div>
-            </motion.div>
-          ))}
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No images found</h3>
+              <p className="text-gray-500 dark:text-gray-400 max-w-xs">We haven't shared any moments in this category yet. Stay tuned!</p>
+            </div>
+          )}
         </div>
 
         {showButton && homeGallery.length > 0 && (

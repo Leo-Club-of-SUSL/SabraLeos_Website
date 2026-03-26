@@ -136,7 +136,9 @@ const Contact = () => {
               ) : (
                 <form key="form" onSubmit={handleSubmit} className="space-y-6">
                   <div>
-                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Name</label>
+                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">
+                      Name <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       name="name"
@@ -148,7 +150,9 @@ const Contact = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Email</label>
+                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">
+                      Email <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="email"
                       name="email"
@@ -160,7 +164,9 @@ const Contact = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">Message</label>
+                    <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">
+                      Message <span className="text-red-500">*</span>
+                    </label>
                     <textarea
                       name="message"
                       required

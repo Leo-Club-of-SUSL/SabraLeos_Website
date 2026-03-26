@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Loader2, Trophy, X, Calendar } from 'lucide-react';
+import { Trophy, X, Calendar } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
 
 const Awards = () => {
@@ -29,13 +29,54 @@ const Awards = () => {
     setActiveIndex(newIndex < awards.length ? newIndex : awards.length - 1);
   };
 
+
+
+  const dotsRef = useRef<HTMLDivElement>(null);
+  const [isInteracting, setIsInteracting] = useState(false);
+
+  const updateScrollFromPointer = (e: React.PointerEvent | PointerEvent) => {
+    if (!dotsRef.current || !containerRef.current) return;
+    
+    const rect = dotsRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, x / rect.width));
+    
+    const scrollMax = containerRef.current.scrollWidth - containerRef.current.clientWidth;
+    containerRef.current.scrollLeft = percentage * scrollMax;
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    setIsInteracting(true);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    updateScrollFromPointer(e);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (isInteracting) {
+      updateScrollFromPointer(e);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    setIsInteracting(false);
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  };
+
   if (loading && awards.length === 0) {
     return (
       <section id="awards" className="py-20 bg-gray-50 dark:bg-slate-800/50 transition-colors duration-300">
         <div className="container mx-auto px-6">
-          <div className="flex flex-col items-center justify-center min-h-[300px]">
-            <Loader2 className="w-12 h-12 text-[var(--color-leo-maroon)] animate-spin mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Loading awards...</p>
+          <div className="text-center mb-16">
+            <div className="h-10 w-64 bg-gray-200 dark:bg-slate-700 rounded-lg mx-auto mb-4 skeleton"></div>
+            <div className="w-20 h-1 bg-[var(--color-leo-gold)] mx-auto rounded-full"></div>
+          </div>
+          <div className="flex gap-8 overflow-hidden pb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex-none w-64 text-center">
+                <div className="w-48 h-48 mx-auto mb-6 rounded-full bg-gray-200 dark:bg-slate-700 skeleton"></div>
+                <div className="h-6 w-3/4 bg-gray-200 dark:bg-slate-700 rounded mx-auto skeleton"></div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -66,7 +107,11 @@ const Awards = () => {
           <motion.div
             ref={containerRef}
             onScroll={handleScroll}
-            className={`flex gap-8 overflow-x-auto pb-8 snap-x no-scrollbar px-4 ${awards.length <= 4 ? 'lg:justify-center' : ''}`}
+            style={{ 
+              scrollSnapType: isInteracting ? 'none' : 'x mandatory',
+              scrollBehavior: isInteracting ? 'auto' : 'smooth'
+            }}
+            className={`flex gap-8 overflow-x-auto pb-8 no-scrollbar px-4 ${awards.length <= 4 ? 'lg:justify-center' : ''}`}
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -120,13 +165,24 @@ const Awards = () => {
         </div>
 
         {awards.length > 3 && (
-          <div className="mt-12 flex justify-center gap-2 flex-wrap max-w-sm mx-auto">
-            {awards.map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 rounded-full transition-all duration-300 ${activeIndex === i ? 'w-8 bg-[var(--color-leo-maroon)] dark:bg-[var(--color-leo-gold)]' : 'w-1.5 bg-gray-300 dark:bg-gray-700'}`}
-              ></div>
-            ))}
+          <div className="mt-12 flex justify-center py-4 select-none touch-none">
+            <div 
+              ref={dotsRef}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              className="flex items-center gap-2 px-6 py-4 cursor-pointer active:scale-95 transition-transform bg-gray-200/30 dark:bg-gray-700/30 rounded-full backdrop-blur-sm"
+            >
+              {awards.map((_, i) => (
+                <motion.div
+                  layout
+                  key={i}
+                  transition={{ type: "spring", stiffness: 400, damping: 40 }}
+                  className={`h-2 rounded-full pointer-events-none ${activeIndex === i ? 'w-10 bg-[var(--color-leo-maroon)] dark:bg-[var(--color-leo-gold)]' : 'w-2 bg-gray-300 dark:bg-gray-700'}`}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>

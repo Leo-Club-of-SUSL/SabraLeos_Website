@@ -11,9 +11,12 @@ export const imageService = {
   /**
    * Compresses and uploads an image to Supabase Storage
    */
-  async uploadToSupabase(file: File, bucket: string, customName?: string): Promise<string> {
+  async uploadToSupabase(file: File, bucket: string, customName?: string, onProgress?: (p: number) => void): Promise<string> {
     try {
+      if (onProgress) onProgress(10);
       const compressed = await imageCompression(file, compressionOptions);
+      if (onProgress) onProgress(40);
+      
       const fileExt = file.name.split('.').pop();
       const baseName = customName ? customName.replace(/[^a-z0-9]/gi, '_').toLowerCase() : Date.now().toString();
       const fileName = `${baseName}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
@@ -23,6 +26,7 @@ export const imageService = {
         .upload(fileName, compressed);
       
       if (error) throw error;
+      if (onProgress) onProgress(100);
       
       const { data: { publicUrl } } = supabase.storage
         .from(bucket)
@@ -38,36 +42,38 @@ export const imageService = {
   /**
    * Compresses and uploads an image to Cloudinary
    */
-  async uploadToCloudinary(file: File, customName?: string): Promise<string> {
+  async uploadToCloudinary(file: File, customName?: string, onProgress?: (p: number) => void): Promise<string> {
     try {
+      if (onProgress) onProgress(10);
       const compressed = await imageCompression(file, compressionOptions);
-      const formData = new FormData();
+      if (onProgress) onProgress(30);
       
-      // If customName is provided, we can try to set the public_id or just rename the file blob
+      const formData = new FormData();
       const fileExt = file.name.split('.').pop();
       const baseName = customName ? customName.replace(/[^a-z0-9]/gi, '_').toLowerCase() : Date.now().toString();
       const fileName = `${baseName}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
       
-      // Note: Cloudinary's unsigned upload uses the filename as the public_id if configured in the preset
       const renamedFile = new File([compressed], fileName, { type: compressed.type });
       
       const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
       const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
       if (!cloudName || !uploadPreset) {
-        console.error('Cloudinary config missing:', { cloudName, uploadPreset });
-        throw new Error('Cloudinary configuration missing. Ensure VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET are set in your hosting dashboard.');
+        throw new Error('Cloudinary configuration missing.');
       }
 
       formData.append('file', renamedFile);
       formData.append('upload_preset', uploadPreset);
       formData.append('folder', 'leo-club');
 
+      if (onProgress) onProgress(50);
+
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
         { method: 'POST', body: formData }
       );
 
+      if (onProgress) onProgress(90);
       
       if (!res.ok) {
         const errorData = await res.json();
@@ -75,15 +81,11 @@ export const imageService = {
       }
       
       const data = await res.json();
-      if (!data.secure_url) {
-        console.error('Cloudinary response missing secure_url:', data);
-        throw new Error('Cloudinary response missing secure_url - check your preset configuration');
-      }
+      if (onProgress) onProgress(100);
       return data.secure_url;
     } catch (err) {
       console.error('Cloudinary upload error:', err);
-      if (err instanceof Error) throw err;
-      throw new Error('Cloudinary upload failed due to network or configuration error');
+      throw err;
     }
   },
 
