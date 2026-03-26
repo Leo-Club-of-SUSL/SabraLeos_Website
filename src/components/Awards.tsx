@@ -43,7 +43,7 @@ const Awards = () => {
   }
 
   if (awards.length === 0 && !loading) {
-     return <section id="awards" className="h-0 invisible pointer-events-none" aria-hidden="true" />;
+    return <section id="awards" className="h-0 invisible pointer-events-none" aria-hidden="true" />;
   }
 
   return (
@@ -63,7 +63,7 @@ const Awards = () => {
         </motion.div>
 
         <div className="relative">
-          <motion.div 
+          <motion.div
             ref={containerRef}
             onScroll={handleScroll}
             className={`flex gap-8 overflow-x-auto pb-8 snap-x no-scrollbar px-4 ${awards.length <= 4 ? 'lg:justify-center' : ''}`}
@@ -113,7 +113,7 @@ const Awards = () => {
               </motion.div>
             ))}
           </motion.div>
-          
+
           {/* Custom Scrollbar Hint/Gradient */}
           <div className="absolute top-0 right-0 h-full w-20 bg-gradient-to-l from-gray-50 dark:from-slate-900 pointer-events-none opacity-50"></div>
           <div className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-gray-50 dark:from-slate-900 pointer-events-none opacity-50"></div>
@@ -121,12 +121,12 @@ const Awards = () => {
 
         {awards.length > 3 && (
           <div className="mt-12 flex justify-center gap-2 flex-wrap max-w-sm mx-auto">
-              {awards.map((_, i) => (
-                <div 
-                  key={i} 
-                  className={`h-1.5 rounded-full transition-all duration-300 ${activeIndex === i ? 'w-8 bg-[var(--color-leo-maroon)] dark:bg-[var(--color-leo-gold)]' : 'w-1.5 bg-gray-300 dark:bg-gray-700'}`}
-                ></div>
-              ))}
+            {awards.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-300 ${activeIndex === i ? 'w-8 bg-[var(--color-leo-maroon)] dark:bg-[var(--color-leo-gold)]' : 'w-1.5 bg-gray-300 dark:bg-gray-700'}`}
+              ></div>
+            ))}
           </div>
         )}
       </div>
@@ -201,7 +201,7 @@ const Awards = () => {
 
                 <div className="mt-10 pt-6 border-t border-gray-100 dark:border-slate-800">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
-                    Official Recognition • Sabaragamuwa University
+                    Official Recognition • Leo Club of Sabaragamuwa University
                   </p>
                 </div>
               </div>

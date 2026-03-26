@@ -3,9 +3,11 @@ import { useData } from '../context/DataContext';
 import { Mail, Phone, MapPin, Facebook, Instagram, MessageCircle, Linkedin, Send, Loader2, CheckCircle2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { messagesAPI } from '../lib/supabaseService';
+import { useToast } from './Toast';
 
 const Contact = () => {
   const { siteContent } = useData();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -29,14 +31,17 @@ const Contact = () => {
     try {
       await messagesAPI.create(formData);
       setStatus('success');
+      showToast('Message sent successfully! We\'ll get back to you soon.', 'success');
       setFormData({ name: '', email: '', message: '' });
       
-      // Reset success message after 5 seconds
-      setTimeout(() => setStatus('idle'), 5000);
-    } catch (error) {
+      // Reset success message after 10 seconds
+      setTimeout(() => setStatus('idle'), 10000);
+    } catch (error: any) {
       console.error('Contact submission error:', error);
       setStatus('error');
-      setErrorMessage('Failed to send message. Please try again later.');
+      const errorMsg = error.message || 'Failed to send message. Please try again later.';
+      setErrorMessage(errorMsg);
+      showToast(errorMsg, 'error');
     }
   };
 
@@ -138,7 +143,7 @@ const Contact = () => {
                       required
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
                       placeholder="Your Name"
                     />
                   </div>
@@ -150,7 +155,7 @@ const Contact = () => {
                       required
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
                       placeholder="your@email.com"
                     />
                   </div>
@@ -162,7 +167,7 @@ const Contact = () => {
                       rows={4}
                       value={formData.message}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
                       placeholder="How can we help you?"
                     ></textarea>
                   </div>

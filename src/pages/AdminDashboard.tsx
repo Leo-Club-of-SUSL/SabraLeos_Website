@@ -134,6 +134,8 @@ const AdminDashboard = () => {
   // Messages state
   const [messages, setMessages] = useState<any[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
 
   // Confirm dialog state
@@ -1131,34 +1133,65 @@ const AdminDashboard = () => {
 
                 {messagesLoading && !messages.length ? (
                   <div className="text-center py-12 text-gray-400"><Loader2 size={24} className="animate-spin mx-auto mb-2" />Loading messages...</div>
-                ) : messages.length === 0 ? (
+                 ) : messages.length === 0 ? (
                   <EmptyState icon={Mail} text="No messages yet" sub="Contact form submissions will appear here" />
                 ) : (
-                  <div className="grid gap-4">
-                    {messages.map(msg => (
-                      <div key={msg.id} className="p-5 rounded-2xl border border-gray-100 dark:border-slate-700 bg-gray-50/30 dark:bg-slate-700/10 hover:border-gray-200 dark:hover:border-slate-600 transition-all group relative">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-[var(--color-leo-maroon)] text-white flex items-center justify-center font-bold">
-                              {msg.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-gray-800 dark:text-white text-sm">{msg.name}</h4>
-                              <p className="text-xs text-gray-400 font-medium">{msg.email}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(msg.createdAt).toLocaleDateString()}</span>
-                            <button onClick={() => handleDeleteClick(msg)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="bg-white/50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed shadow-inner">
-                          {msg.message}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="border border-gray-100 dark:border-slate-700 rounded-xl overflow-hidden overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-50 dark:bg-slate-700/50 text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Date</th>
+                          <th className="px-4 py-3 font-semibold">Sender</th>
+                          <th className="px-4 py-3 font-semibold">Preview</th>
+                          <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50">
+                        {messages.map(msg => (
+                          <tr 
+                            key={msg.id} 
+                            onClick={() => { setSelectedMessage(msg); setIsMessageModalOpen(true); }}
+                            className="hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors cursor-pointer group"
+                          >
+                            <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
+                              {new Date(msg.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <span className="w-7 h-7 rounded-lg bg-[var(--color-leo-maroon)]/10 text-[var(--color-leo-maroon)] flex items-center justify-center font-bold text-[10px]">
+                                  {msg.name.charAt(0).toUpperCase()}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-gray-800 dark:text-white truncate max-w-[120px]">{msg.name}</p>
+                                  <p className="text-[10px] text-gray-400 truncate max-w-[120px]">{msg.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs max-w-[200px] truncate leading-relaxed italic">
+                              "{msg.message}"
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); setSelectedMessage(msg); setIsMessageModalOpen(true); }} 
+                                  className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                  aria-label="View message details"
+                                >
+                                  <Plus size={16} />
+                                </button>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteClick(msg); }} 
+                                  className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                  aria-label="Delete message"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
@@ -1341,6 +1374,71 @@ const AdminDashboard = () => {
               </div>
             </form>
             <style>{`@keyframes dialogPop { from { opacity:0; transform:scale(0.95) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }`}</style>
+          </div>
+        </div>
+      )}
+      
+      {/* ──── MESSAGE DETAIL MODAL ──── */}
+      {isMessageModalOpen && selectedMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setIsMessageModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}
+            style={{ animation: 'dialogPop 0.2s ease-out' }}>
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <Mail size={18} className="text-[var(--color-leo-gold)]" /> Message Details
+              </h3>
+              <button onClick={() => setIsMessageModalOpen(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-400"><X size={20} /></button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Sender Name</p>
+                  <p className="text-sm font-bold text-gray-800 dark:text-white">{selectedMessage.name}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Received On</p>
+                  <p className="text-sm font-bold text-gray-800 dark:text-white">
+                    {new Date(selectedMessage.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Email Address</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-gray-800 dark:text-white">{selectedMessage.email}</p>
+                  <a href={`mailto:${selectedMessage.email}`} className="text-xs font-bold text-[var(--color-leo-maroon)] hover:underline flex items-center gap-1">
+                    Reply <ArrowLeft size={12} className="rotate-180" />
+                  </a>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Message Content</p>
+                <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed shadow-inner italic">
+                  "{selectedMessage.message}"
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-100 dark:border-slate-700 flex justify-end gap-3">
+              <button 
+                onClick={() => {
+                   setIsMessageModalOpen(false);
+                   handleDeleteClick(selectedMessage);
+                }} 
+                className="px-4 py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2"
+              >
+                <Trash2 size={16} /> Delete Message
+              </button>
+              <button 
+                onClick={() => setIsMessageModalOpen(false)} 
+                className="px-6 py-2.5 rounded-xl bg-[var(--color-leo-maroon)] text-white text-sm font-bold hover:bg-red-900 transition-all shadow-md active:scale-95"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
