@@ -9,20 +9,49 @@ const Hero = () => {
 
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Optimizing Cloudinary URLs for fast placeholder loading
+  const getOptimizedUrl = (url: string | undefined, params: string) => {
+    if (url && url.includes('cloudinary.com')) {
+      const parts = url.split('/upload/');
+      if (parts.length === 2) {
+        return `${parts[0]}/upload/${params}/${parts[1]}`;
+      }
+    }
+    return url;
+  };
+
+  const highResUrl = siteContent.hero_bg_image;
+  const isCloudinary = highResUrl && highResUrl.includes('cloudinary.com');
+  const lowResUrl = isCloudinary ? getOptimizedUrl(highResUrl, 'w_100,c_fill,e_blur:1000,f_auto,q_auto:eco') : null;
+
   return (
     <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
+        {/* Low-res optimized placeholder - Only for Cloudinary */}
+        {lowResUrl && !isLoaded && (
+          <div 
+             className="absolute inset-0 bg-cover bg-center"
+             style={{ 
+               backgroundImage: `url(${lowResUrl})`,
+               filter: 'blur(20px)',
+               transform: 'scale(1.1)' 
+             }}
+          />
+        )}
+
+        {/* High-res image fade-in */}
         <motion.div
            initial={{ opacity: 0 }}
            animate={{ opacity: isLoaded ? 1 : 0 }}
-           transition={{ duration: 1.5 }}
-           className="w-full h-full"
+           transition={{ duration: 0.8, ease: "easeInOut" }}
+           className="w-full h-full relative"
         >
           <img
-            src={siteContent.hero_bg_image}
+            src={highResUrl}
             alt="Leo Club Background"
             className="w-full h-full object-cover"
+            fetchPriority="high"
             onLoad={() => setIsLoaded(true)}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
