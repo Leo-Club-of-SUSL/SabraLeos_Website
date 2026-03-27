@@ -4,7 +4,7 @@ import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 
-const GALLERY_PAGE_SIZE = 12;
+
 
 interface GalleryProps {
   limit?: number;
@@ -14,8 +14,18 @@ interface GalleryProps {
 
 const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryProps) => {
   const { gallery, loading } = useData();
-  const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Optimizing Cloudinary URLs for faster grid loading
+  const getOptimizedUrl = (url: string, params: string) => {
+    if (url && url.includes('cloudinary.com')) {
+      const parts = url.split('/upload/');
+      if (parts.length === 2) {
+        return `${parts[0]}/upload/${params}/${parts[1]}`;
+      }
+    }
+    return url;
+  };
 
   // If limit is provided, we are on the Home Feed. Use sortOrder.
   // Otherwise, use id descending for the full Library view.
@@ -27,10 +37,14 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
     : [...gallery].sort((a, b) => b.id - a.id);
 
   const homeGallery = limit ? sortedGallery.filter(img => img.showOnHome) : sortedGallery;
+  
+  // If limit is provided, we use that. 
+  // If not, we show everything (all images at once) as per user request.
   const displayedGallery = limit
     ? homeGallery.slice(0, limit)
-    : homeGallery.slice(0, visibleCount);
-  const hasMore = !limit && visibleCount < homeGallery.length;
+    : homeGallery;
+  
+  
 
   if (loading && gallery.length === 0) {
     return (
@@ -79,7 +93,7 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
                 className={`relative overflow-hidden rounded-xl group ${index === 0 || index === 3 ? 'md:col-span-2 md:row-span-2' : ''} ${enableLightbox ? 'cursor-pointer' : ''}`}
               >
                 <img
-                  src={img.src}
+                  src={getOptimizedUrl(img.src, 'w_600,c_fill,f_auto,q_auto:eco')}
                   alt={img.alt}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   loading="lazy"
@@ -120,17 +134,7 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
           </div>
         )}
 
-        {hasMore && (
-          <div className="flex justify-center mt-12">
-            <button
-              onClick={() => setVisibleCount(c => c + GALLERY_PAGE_SIZE)}
-              className="px-8 py-3 bg-[var(--color-leo-maroon)] text-white rounded-xl font-bold hover:bg-red-800 transition-all shadow-lg hover:shadow-red-900/20 active:scale-95 flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-leo-maroon"
-              aria-label="Load more images"
-            >
-              Load More Masterpieces
-            </button>
-          </div>
-        )}
+        {/* Load more button removed as per request for all-at-once loading */}
 
       </div>
 
@@ -155,7 +159,7 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              src={selectedImage}
+              src={getOptimizedUrl(selectedImage, 'f_auto,q_auto:best')}
               className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
               onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
               alt="Enlarged gallery view"

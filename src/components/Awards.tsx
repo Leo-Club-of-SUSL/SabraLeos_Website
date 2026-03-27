@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Trophy, X, Calendar } from 'lucide-react';
+import { Trophy, X, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
 
 const Awards = () => {
@@ -8,6 +8,8 @@ const Awards = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedAward, setSelectedAward] = useState<any>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   // Prevent scroll when modal is open
   useEffect(() => {
@@ -23,10 +25,33 @@ const Awards = () => {
 
   const handleScroll = () => {
     if (!containerRef.current) return;
-    const { scrollLeft } = containerRef.current;
+    const { scrollLeft, scrollWidth, clientWidth } = containerRef.current;
     // Each item is w-64 (256px) + gap-8 (32px) = 288px per snap point
     const newIndex = Math.round(scrollLeft / 288);
     setActiveIndex(newIndex < awards.length ? newIndex : awards.length - 1);
+
+    setCanScrollLeft(scrollLeft > 10);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(handleScroll, 100);
+    return () => clearTimeout(timer);
+  }, [awards]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (containerRef.current) {
+      const { clientWidth } = containerRef.current;
+      const scrollAmount = clientWidth * 0.8;
+      const scrollTo = direction === 'left'
+        ? containerRef.current.scrollLeft - scrollAmount
+        : containerRef.current.scrollLeft + scrollAmount;
+
+      containerRef.current.scrollTo({
+        left: scrollTo,
+        behavior: 'smooth'
+      });
+    }
   };
 
 
@@ -103,7 +128,18 @@ const Awards = () => {
           </p>
         </motion.div>
 
-        <div className="relative">
+        <div className="relative group/scroll px-4 md:px-0">
+          {/* Navigation Buttons for PC */}
+          {canScrollLeft && (
+            <button
+              onClick={() => scroll('left')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-6 z-20 p-3 bg-white dark:bg-slate-800 rounded-full shadow-xl text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] hover:scale-110 transition-all flex items-center justify-center border border-gray-100 dark:border-slate-700 active:scale-95 group/btn"
+              aria-label="Previous awards"
+            >
+              <ChevronLeft size={24} className="group-hover/btn:-translate-x-0.5 transition-transform" />
+            </button>
+          )}
+
           <motion.div
             ref={containerRef}
             onScroll={handleScroll}
@@ -159,9 +195,19 @@ const Awards = () => {
             ))}
           </motion.div>
 
+          {canScrollRight && (
+            <button
+              onClick={() => scroll('right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-6 z-20 p-3 bg-white dark:bg-slate-800 rounded-full shadow-xl text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] hover:scale-110 transition-all flex items-center justify-center border border-gray-100 dark:border-slate-700 active:scale-95 group/btn"
+              aria-label="Next awards"
+            >
+              <ChevronRight size={24} className="group-hover/btn:translate-x-0.5 transition-transform" />
+            </button>
+          )}
+
           {/* Custom Scrollbar Hint/Gradient */}
-          <div className="absolute top-0 right-0 h-full w-20 bg-gradient-to-l from-gray-50 dark:from-slate-900 pointer-events-none opacity-50"></div>
-          <div className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-gray-50 dark:from-slate-900 pointer-events-none opacity-50"></div>
+          <div className="absolute top-0 right-0 h-full w-20 bg-gradient-to-l from-gray-50 dark:from-slate-900 pointer-events-none opacity-40"></div>
+          <div className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-gray-50 dark:from-slate-900 pointer-events-none opacity-40"></div>
         </div>
 
         {awards.length > 3 && (

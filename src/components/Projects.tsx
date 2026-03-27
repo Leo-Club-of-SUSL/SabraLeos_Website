@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { Calendar, Users, ArrowRight, Clock, X } from 'lucide-react';
+import { Calendar, Users, ArrowRight, Clock, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Projects = () => {
   const { projects, loading, error } = useData();
   const [filter, setFilter] = useState('All');
   const [selectedProject, setSelectedProject] = useState<any>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const categories = ['All', 'Completed', 'Ongoing', 'Upcoming'];
 
   // Prevent scroll when modal is open
@@ -24,6 +27,38 @@ const Projects = () => {
   const filteredProjects = filter === 'All'
     ? projects
     : projects.filter(p => p.category === filter);
+
+  const checkScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 10);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(checkScroll, 100);
+    window.addEventListener('resize', checkScroll);
+    return () => {
+      window.removeEventListener('resize', checkScroll);
+      clearTimeout(timer);
+    };
+  }, [filteredProjects, filter]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const { clientWidth } = scrollRef.current;
+      const scrollAmount = clientWidth * 0.8;
+      const scrollTo = direction === 'left'
+        ? scrollRef.current.scrollLeft - scrollAmount
+        : scrollRef.current.scrollLeft + scrollAmount;
+
+      scrollRef.current.scrollTo({
+        left: scrollTo,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -102,9 +137,22 @@ const Projects = () => {
           </div>
         </motion.div>
 
-        <div className="relative">
-          <motion.div 
-            className="flex gap-8 overflow-x-auto pb-8 snap-x no-scrollbar"
+        <div className="relative group/scroll px-4 md:px-0">
+          {/* Navigation Buttons - Hidden on mobile, visible on hover on PC */}
+          {canScrollLeft && (
+            <button
+              onClick={() => scroll('left')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-6 z-20 p-3 bg-white dark:bg-slate-800 rounded-full shadow-xl text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] hover:scale-110 transition-all flex items-center justify-center border border-gray-100 dark:border-slate-700 active:scale-95 group/btn"
+              aria-label="Previous projects"
+            >
+              <ChevronLeft size={24} className="group-hover/btn:-translate-x-0.5 transition-transform" />
+            </button>
+          )}
+
+          <motion.div
+            ref={scrollRef}
+            onScroll={checkScroll}
+            className="flex gap-8 overflow-x-auto pb-8 snap-x no-scrollbar scroll-smooth"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -196,9 +244,19 @@ const Projects = () => {
             </AnimatePresence>
           </motion.div>
 
+          {canScrollRight && (
+            <button
+              onClick={() => scroll('right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-6 z-20 p-3 bg-white dark:bg-slate-800 rounded-full shadow-xl text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] hover:scale-110 transition-all flex items-center justify-center border border-gray-100 dark:border-slate-700 active:scale-95 group/btn"
+              aria-label="Next projects"
+            >
+              <ChevronRight size={24} className="group-hover/btn:translate-x-0.5 transition-transform" />
+            </button>
+          )}
+
           {/* Custom Scrollbar Hint/Gradient */}
-          <div className="absolute top-0 right-0 h-full w-20 bg-gradient-to-l from-gray-50 dark:from-slate-950 pointer-events-none opacity-50"></div>
-          <div className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-gray-50 dark:from-slate-950 pointer-events-none opacity-50"></div>
+          <div className="absolute top-0 right-0 h-full w-20 bg-gradient-to-l from-gray-50 dark:from-slate-950 pointer-events-none opacity-40"></div>
+          <div className="absolute top-0 left-0 h-full w-20 bg-gradient-to-r from-gray-50 dark:from-slate-950 pointer-events-none opacity-40"></div>
         </div>
 
         <style>{`
