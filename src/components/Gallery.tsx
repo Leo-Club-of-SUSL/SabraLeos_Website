@@ -93,7 +93,7 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
                 className={`relative overflow-hidden rounded-xl group ${index === 0 || index === 3 ? 'md:col-span-2 md:row-span-2' : ''} ${enableLightbox ? 'cursor-pointer' : ''}`}
               >
                 <img
-                  src={getOptimizedUrl(img.src, 'w_600,c_fill,f_auto,q_auto:eco')}
+                  src={getOptimizedUrl(img.src, (index === 0 || index === 3) ? 'w_1200,c_fill,f_auto,q_auto' : 'w_600,c_fill,f_auto,q_auto')}
                   alt={img.alt}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   loading="lazy"
