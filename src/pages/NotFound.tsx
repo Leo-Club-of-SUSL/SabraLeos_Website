@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { Home, ArrowLeft } from 'lucide-react';
 
 const NotFound = () => {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-slate-950 text-center px-6 transition-colors">
+            <Helmet>
+                <title>404 - Page Not Found | Leo Club of SUSL</title>
+                <meta name="robots" content="noindex, follow" />
+            </Helmet>
             <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}

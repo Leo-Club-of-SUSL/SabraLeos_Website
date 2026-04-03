@@ -73,9 +73,11 @@ const Home = () => {
     <>
       <Helmet>
         <title>Leo Club of SUSL | SabraLeos of Sabragamuwa University</title>
-        <meta name="description" content="Official website of the Leo Club of Sabragamuwa University of Sri Lanka (SUSL). Join us in leadership, experience, and opportunity for a better community." />
-        <meta name="keywords" content="Leo Club, SUSL, Sabragamuwa University, Sri Lanka, Leo Club of Sabragamuwa, SabraLeos, Community Service, Leadership, Youth Organization" />
+        <meta name="description" content="Official website of the Leo Club of Sabragamuwa University of Sri Lanka (SUSL). Join SabraLeos (sabraleos.org) for leadership, experience, and opportunity for a better community." />
+        <meta name="keywords" content="sabraleos, Sabra leos, Leo club of SUSL, Leo club of sabaragamuwa university, Sri Lanka, Leo Club, SUSL, Sabragamuwa University, Sri Lanka, Leo Club of Sabragamuwa, SabraLeos, Community Service, Leadership, Youth Organization" />
         
+        <link rel="canonical" href={SITE_URL} />
+
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={SITE_URL} />

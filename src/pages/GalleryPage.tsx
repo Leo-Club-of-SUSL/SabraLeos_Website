@@ -17,9 +17,11 @@ const GalleryPage = () => {
         <div className="flex flex-col min-h-screen">
             <Helmet>
                 <title>Photo Gallery | Leo Club of SUSL | SabraLeos</title>
-                <meta name="description" content="Browse through capture of our service projects, events, and meaningful moments. Experience the impact of the Leo Club of Sabaragamuwa University of Sri Lanka." />
-                <meta name="keywords" content="Leo Club SUSL Gallery, SabraLeos Photos, Sabaragamuwa University Events, Sri Lanka Leos, Club Activities, Community Service Photos" />
+                <meta name="description" content="Browse through captures of our service projects, events, and meaningful moments. Experience the impact of the Leo Club of Sabragamuwa University of Sri Lanka (SabraLeos)." />
+                <meta name="keywords" content="sabraleos photo gallery, Sabra leos, Leo Club SUSL Gallery, SabraLeos Photos, Sabaragamuwa University Events, Sri Lanka Leos" />
                 
+                <link rel="canonical" href={`${SITE_URL}/gallery`} />
+
                 {/* Open Graph / Facebook */}
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content={`${SITE_URL}/gallery`} />
