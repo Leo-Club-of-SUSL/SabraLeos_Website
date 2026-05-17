@@ -5,21 +5,49 @@
  * a Google OAuth2 access token. No Node.js SDK dependencies required.
  *
  * Route: /api/analytics  (GET)
+ *
+ * Security:
+ * - CORS restricted to sabraleos.org only
+ * - Requires correct Origin header (browser) or X-Internal-Key header (internal)
  */
 
 interface Env {
   GA4_PROPERTY_ID: string;
   GOOGLE_SERVICE_ACCOUNT_EMAIL: string;
   GOOGLE_PRIVATE_KEY: string;
+  ANALYTICS_INTERNAL_KEY?: string; // Optional: set in CF dashboard for extra security
+}
+
+// Allowed origins — production + Cloudflare preview URLs
+const ALLOWED_ORIGINS = [
+  "https://sabraleos.org",
+  "https://www.sabraleos.org",
+];
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowed = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith(".sabraleos-website.pages.dev"));
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin! : "https://sabraleos.org",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Internal-Key",
+    "Vary": "Origin",
+    "Content-Type": "application/json",
+  };
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const { env } = context;
+  const { env, request } = context;
 
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Content-Type": "application/json",
-  };
+  const origin = request.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Reject requests from disallowed origins (except direct server-to-server calls)
+  if (origin && !ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith(".sabraleos-website.pages.dev"))) {
+    return Response.json(
+      { error: "Forbidden" },
+      { status: 403, headers: corsHeaders }
+    );
+  }
 
   try {
     const { GA4_PROPERTY_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY } = env;

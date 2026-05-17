@@ -281,15 +281,14 @@ export const leadershipAPI = {
      * Bulk update leadership (e.g., for reordering sort priorities)
      */
     async bulkUpdate(updates: { id: number; sort_order?: number }[]): Promise<void> {
-        const promises = updates.map(({ id, ...rest }) => 
-            supabase.from('leadership').update(rest).eq('id', id)
-        );
-        const results = await Promise.all(promises);
-        const error = results.find(r => r.error)?.error;
+        if (updates.length === 0) return;
+        const results = await supabase
+            .from('leadership')
+            .upsert(updates.map(({ id, ...rest }) => ({ id, ...rest })), { onConflict: 'id' });
 
-        if (error) {
-            console.error('Error bulk updating leadership:', error);
-            throw error;
+        if (results.error) {
+            console.error('Error bulk updating leadership:', results.error);
+            throw results.error;
         }
     }
 };
@@ -456,18 +455,14 @@ export const galleryAPI = {
      * Bulk update multiple gallery images (useful for reordering)
      */
     async bulkUpdate(updates: { id: number; show_on_home?: boolean; sort_order?: number }[]): Promise<void> {
-        const promises = updates.map(({ id, ...rest }) => 
-            supabase
-                .from('gallery')
-                .update(rest)
-                .eq('id', id)
-        );
+        if (updates.length === 0) return;
+        const results = await supabase
+            .from('gallery')
+            .upsert(updates.map(({ id, ...rest }) => ({ id, ...rest })), { onConflict: 'id' });
 
-        const results = await Promise.all(promises);
-        const errors = results.filter(r => r.error);
-        if (errors.length > 0) {
-            console.error('Error bulk updating gallery:', errors);
-            throw errors[0].error;
+        if (results.error) {
+            console.error('Error bulk updating gallery:', results.error);
+            throw results.error;
         }
     }
 };
@@ -562,18 +557,14 @@ export const awardsAPI = {
      * Bulk update multiple awards (useful for reordering)
      */
     async bulkUpdate(updates: { id: number; sort_order?: number }[]): Promise<void> {
-        const promises = updates.map(({ id, ...rest }) => 
-            supabase
-                .from('awards')
-                .update(rest)
-                .eq('id', id)
-        );
+        if (updates.length === 0) return;
+        const results = await supabase
+            .from('awards')
+            .upsert(updates.map(({ id, ...rest }) => ({ id, ...rest })), { onConflict: 'id' });
 
-        const results = await Promise.all(promises);
-        const errors = results.filter(r => r.error);
-        if (errors.length > 0) {
-            console.error('Error bulk updating awards:', errors);
-            throw errors[0].error;
+        if (results.error) {
+            console.error('Error bulk updating awards:', results.error);
+            throw results.error;
         }
     }
 };
@@ -627,7 +618,7 @@ export const messagesAPI = {
     async getAll(): Promise<ContactMessage[]> {
         const { data, error } = await supabase
             .from('contact_messages')
-            .select('*')
+            .select('id, name, email, message, created_at')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -677,7 +668,7 @@ export const contentLogsAPI = {
     async getAll(limit = 50): Promise<ContentLog[]> {
         const { data, error } = await supabase
             .from('content_logs')
-            .select('*')
+            .select('id, action, section, description, performed_by, created_at')
             .order('created_at', { ascending: false })
             .limit(limit);
 
