@@ -391,4 +391,69 @@ SELECT TO authenticated USING (true);
 
 -- Only authenticated admins can delete content logs
 CREATE POLICY "Allow authenticated delete on content_logs" ON content_logs FOR
-DELETE TO authenticated USING (true);
+DELETE TO authenticated USING (true);
+
+-- ============================================
+-- Table: magazines (E-Magazine feature)
+-- ============================================
+-- Enable moddatetime extension for auto-updating updated_at
+CREATE EXTENSION IF NOT EXISTS moddatetime SCHEMA extensions;
+
+CREATE TABLE IF NOT EXISTS magazines (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title           TEXT NOT NULL,
+  slug            TEXT UNIQUE NOT NULL,
+  volume_number   INTEGER,
+  issue_number    INTEGER,
+  published_date  DATE,
+  description     TEXT,
+  cover_image_path TEXT,        -- Supabase Storage path (not public URL)
+  pdf_file_path   TEXT NOT NULL, -- Supabase Storage path (not public URL)
+  is_published    BOOLEAN NOT NULL DEFAULT FALSE,
+  is_downloadable BOOLEAN NOT NULL DEFAULT TRUE,
+  tags            TEXT[],        -- PostgreSQL array
+  view_count      INTEGER NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Auto-update updated_at on every row change
+CREATE OR REPLACE TRIGGER magazines_updated_at
+  BEFORE UPDATE ON magazines
+  FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(updated_at);
+
+-- Indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_magazines_is_published  ON magazines(is_published);
+CREATE INDEX IF NOT EXISTS idx_magazines_published_date ON magazines(published_date DESC);
+CREATE INDEX IF NOT EXISTS idx_magazines_slug          ON magazines(slug);
+
+-- ============================================
+-- RLS for magazines table
+-- ============================================
+ALTER TABLE magazines ENABLE ROW LEVEL SECURITY;
+
+-- Public can SELECT only published magazines
+CREATE POLICY "Allow public read published magazines"
+  ON magazines FOR SELECT
+  TO public
+  USING (is_published = TRUE);
+
+-- Authenticated admins can INSERT, UPDATE, DELETE any magazine
+CREATE POLICY "Allow authenticated users to manage magazines"
+  ON magazines FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- ============================================
+-- RPC: increment_magazine_view
+-- ============================================
+-- Atomic increment for magazine view counts
+CREATE OR REPLACE FUNCTION increment_magazine_view(magazine_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE magazines
+  SET view_count = view_count + 1
+  WHERE id = magazine_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

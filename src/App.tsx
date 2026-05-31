@@ -12,6 +12,7 @@ import Home from './pages/Home';
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const GalleryPage = lazy(() => import('./pages/GalleryPage'));
+const MagazinePage = lazy(() => import('./pages/MagazinePage'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Page View Tracker Component
@@ -81,6 +82,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/gallery" element={<GalleryPage />} />
+                  <Route path="/e-magazine" element={<MagazinePage />} />
                   <Route path="/admin" element={<AdminLogin />} />
                   <Route
                     path="/admin/dashboard"
