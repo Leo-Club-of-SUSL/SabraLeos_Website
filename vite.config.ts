@@ -6,4 +6,18 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    exclude: ['pdfjs-dist'],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('pdfjs-dist')) {
+            return 'pdfjs';
+          }
+        },
+      },
+    },
+  },
 })

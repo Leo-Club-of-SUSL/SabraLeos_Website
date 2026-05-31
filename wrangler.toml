@@ -5,3 +5,10 @@
 name = "sabraleos-website"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-03-25"
+
+[vars]
+# Cloudinary API Credentials (must be set in the Cloudflare Pages Dashboard under Settings -> Environment Variables in production)
+# CLOUDINARY_CLOUD_NAME = "your-cloud-name"
+# CLOUDINARY_API_KEY = "your-api-key"
+# CLOUDINARY_API_SECRET = "your-api-secret"
+

@@ -1,17 +1,17 @@
-// src/components/magazine/MagazineViewer.tsx
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   ChevronLeft,
   ChevronRight,
-  ZoomIn,
-  ZoomOut,
+  Maximize,
+  Minimize,
   Download,
   Loader2,
   AlertTriangle,
-  BookOpen,
 } from 'lucide-react';
+import HTMLFlipBook from 'react-pageflip';
+import { usePdfPageRenderer } from '../../hooks/usePdfPageRenderer';
 import { fetchMagazinePdfUrl, incrementViewCount } from '../../services/magazineService';
 import type { Magazine } from '../../types/magazine';
 
@@ -20,148 +20,119 @@ interface MagazineViewerProps {
   onClose: () => void;
 }
 
-type PDFLib = typeof import('pdfjs-dist');
-type PDFDocumentProxy = import('pdfjs-dist').PDFDocumentProxy;
+const FlipPage = React.forwardRef<HTMLDivElement, { number: number; dataUrl: string | null }>(
+  ({ number, dataUrl }, ref) => (
+    <div ref={ref} className="relative bg-white overflow-hidden shadow-[inset_0_0_10px_rgba(0,0,0,0.1)]">
+      {dataUrl ? (
+        <img
+          src={dataUrl}
+          alt={`Page ${number + 1}`}
+          className="w-full h-full object-contain"
+          draggable={false}
+          onContextMenu={(e) => e.preventDefault()}
+        />
+      ) : (
+        <div className="w-full h-full animate-pulse bg-gray-200 flex items-center justify-center">
+          <span className="text-gray-400 text-sm">Loading page {number + 1}...</span>
+        </div>
+      )}
+    </div>
+  )
+);
+FlipPage.displayName = 'FlipPage';
 
 const MagazineViewer = ({ magazine, onClose }: MagazineViewerProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(0); // 0-indexed for react-pageflip
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const bookRef = useRef<any>(null);
+  const [dimensions, setDimensions] = useState({ width: 480, height: 640 });
 
-  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [scale, setScale] = useState(1.2);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [jumpInput, setJumpInput] = useState('');
-  const renderTaskRef = useRef<any>(null);
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const renderScale = isMobile ? 1.2 : 1.5;
 
-  // ── Load PDF via dynamic import (lazy) ──
+  const pdfUrl = magazine ? fetchMagazinePdfUrl(magazine.id) : null;
+  const { pages, totalPages, renderedCount, isLoadingInitial, error } = usePdfPageRenderer(pdfUrl, renderScale);
+
+  // Fire view count once per open
   useEffect(() => {
-    if (!magazine) return;
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setPdfDoc(null);
-    setCurrentPage(1);
-
-    // Fire-and-forget view count
-    incrementViewCount(magazine.id);
-
-    const pdfUrl = fetchMagazinePdfUrl(magazine.id);
-
-    import('pdfjs-dist').then((pdfjsLib: PDFLib) => {
-      if (cancelled) return;
-
-      // Set worker source to CDN URL matching installed version
-      const version = (pdfjsLib as any).version as string;
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
-
-      pdfjsLib
-        .getDocument({ url: pdfUrl })
-        .promise.then((doc) => {
-          if (cancelled) return;
-          setPdfDoc(doc);
-          setTotalPages(doc.numPages);
-          setLoading(false);
-        })
-        .catch((err: Error) => {
-          if (cancelled) return;
-          console.error('PDF load error:', err);
-          setError('Failed to load the PDF. Please try again.');
-          setLoading(false);
-        });
-    }).catch((err) => {
-      if (cancelled) return;
-      console.error('PDF.js dynamic import error:', err);
-      setError('PDF viewer could not be initialized.');
-      setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    if (magazine) {
+      incrementViewCount(magazine.id); 
+      // eslint-disable-next-line
+      setCurrentPage(0);
+    }
   }, [magazine]);
 
-  // ── Render page to canvas ──
-  const renderPage = useCallback(
-    async (pageNum: number) => {
-      if (!pdfDoc || !canvasRef.current) return;
-
-      // Cancel any in-progress render
-      if (renderTaskRef.current) {
-        try { renderTaskRef.current.cancel(); } catch { /* noop */ }
-      }
-
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale });
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-
-      const renderContext = { canvasContext: ctx, viewport, canvas: canvasRef.current };
-      renderTaskRef.current = page.render(renderContext);
-
-      try {
-        await renderTaskRef.current.promise;
-      } catch (err: any) {
-        if (err?.name !== 'RenderingCancelledException') {
-          console.error('Render error:', err);
-        }
-      }
-    },
-    [pdfDoc, scale]
-  );
-
+  // Flipbook dynamic resizing
   useEffect(() => {
-    if (pdfDoc) renderPage(currentPage);
-  }, [pdfDoc, currentPage, scale, renderPage]);
+    const handleResize = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      
+      const pageWidth = Math.min(Math.floor((vw * 0.9) / 2), 480);
+      const pageHeight = Math.min(Math.floor(pageWidth * (4 / 3)), vh * 0.85);
+      
+      setDimensions({ width: pageWidth, height: pageHeight });
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-  // ── Keyboard navigation ──
+  // Keyboard navigation
   useEffect(() => {
     if (!magazine) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        setCurrentPage((p) => Math.min(p + 1, totalPages));
+        if (!isMobile) {
+          bookRef.current?.pageFlip()?.flipNext();
+        } else {
+          setCurrentPage(p => Math.min(p + 1, totalPages - 1));
+        }
       }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        setCurrentPage((p) => Math.max(p - 1, 1));
+        if (!isMobile) {
+          bookRef.current?.pageFlip()?.flipPrev();
+        } else {
+          setCurrentPage(p => Math.max(p - 1, 0));
+        }
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [magazine, totalPages, onClose]);
+  }, [magazine, onClose, isMobile, totalPages]);
 
-  // ── Cleanup on close ──
+  // Handle Fullscreen events
   useEffect(() => {
-    if (!magazine) {
-      setPdfDoc(null);
-      setTotalPages(0);
-      setCurrentPage(1);
-    }
-  }, [magazine]);
+    const onFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
-  const handlePageJump = (e: React.FormEvent) => {
-    e.preventDefault();
-    const n = parseInt(jumpInput, 10);
-    if (!isNaN(n) && n >= 1 && n <= totalPages) {
-      setCurrentPage(n);
-      setJumpInput('');
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(console.error);
+    } else {
+      document.exitFullscreen().catch(console.error);
     }
   };
 
-  const handleZoomIn = () => setScale((s) => Math.min(s + 0.2, 3.0));
-  const handleZoomOut = () => setScale((s) => Math.max(s - 0.2, 0.5));
+  const downloadUrl = magazine ? `${fetchMagazinePdfUrl(magazine.id)}?download=true` : '#';
 
-  const downloadUrl = magazine
-    ? `${fetchMagazinePdfUrl(magazine.id)}?download=true`
-    : '#';
+  // Mobile Swipe handling
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientX);
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart) return;
+    const touchEnd = e.changedTouches[0].clientX;
+    const dist = touchStart - touchEnd;
+    if (dist > 50) setCurrentPage(p => Math.min(p + 1, totalPages - 1));
+    if (dist < -50) setCurrentPage(p => Math.max(p - 1, 0));
+    setTouchStart(null);
+  };
 
   return (
     <AnimatePresence>
@@ -176,149 +147,144 @@ const MagazineViewer = ({ magazine, onClose }: MagazineViewerProps) => {
           role="dialog"
           aria-label={`Reading: ${magazine.title}`}
         >
-          {/* Top bar */}
-          <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10">
-            <div className="flex items-center gap-2 min-w-0">
-              <BookOpen size={16} className="text-[var(--color-leo-gold)] shrink-0" />
-              <span className="text-white font-semibold text-sm truncate max-w-[200px] sm:max-w-none">
-                {magazine.title}
-              </span>
-              {magazine.volume_number && (
-                <span className="hidden sm:inline text-xs text-white/50">
-                  Vol. {magazine.volume_number}
-                  {magazine.issue_number ? `, Issue ${magazine.issue_number}` : ''}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={onClose}
-              className="ml-2 p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--color-leo-gold)] focus-visible:outline-none"
-              aria-label="Close PDF viewer"
-              id="magazine-viewer-close"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* PDF canvas area */}
-          <div
-            ref={containerRef}
-            className="flex-1 overflow-auto flex items-start justify-center p-4"
+          {/* Top absolute close button - outside controls bar */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 z-50 p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-leo-gold)] focus-visible:outline-none"
+            aria-label="Close PDF viewer"
           >
-            {loading && (
-              <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+            <X size={24} />
+          </button>
+
+          <div className="flex-1 overflow-hidden flex items-center justify-center p-4 relative">
+            {isLoadingInitial && !error && (
+              <div className="flex flex-col items-center justify-center gap-4">
                 <Loader2 size={40} className="animate-spin text-[var(--color-leo-gold)]" />
-                <p className="text-white/60 text-sm">Loading PDF…</p>
+                <p className="text-white text-sm">Loading magazine...</p>
+                <p className="text-white/60 text-xs font-medium">Rendering pages... {renderedCount} / {totalPages}</p>
               </div>
             )}
+            
             {error && (
-              <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+              <div className="flex flex-col items-center justify-center gap-4 text-center px-4">
                 <AlertTriangle size={40} className="text-red-400" />
                 <p className="text-white font-semibold">{error}</p>
                 <button
-                  onClick={() => { setPdfDoc(null); setLoading(true); setError(null); }}
+                  onClick={onClose}
                   className="px-4 py-2 bg-[var(--color-leo-maroon)] text-white rounded-lg text-sm font-medium hover:bg-[#600000] transition-colors"
                 >
-                  Retry
+                  Close
                 </button>
               </div>
             )}
-            {!loading && !error && (
-              <canvas
-                ref={canvasRef}
-                className="rounded-lg shadow-2xl max-w-full"
-                onContextMenu={(e) => e.preventDefault()}
-                aria-label={`Page ${currentPage} of ${magazine.title}`}
-              />
+
+            {!isLoadingInitial && !error && pages.length >= (isMobile ? 1 : 2) && (
+              <div className="w-full h-full flex items-center justify-center">
+                {isMobile ? (
+                  <div 
+                    className="w-full h-full flex flex-col items-center overflow-y-auto overflow-x-hidden touch-pan-y pt-4 pb-20"
+                    onTouchStart={onTouchStart}
+                    onTouchEnd={onTouchEnd}
+                  >
+                    <div className="w-full max-w-[95vw] mt-auto mb-auto relative bg-white/5 shadow-2xl overflow-hidden rounded">
+                      {pages[currentPage] ? (
+                        <img 
+                          src={pages[currentPage] as string} 
+                          alt={`Page ${currentPage + 1}`} 
+                          className="w-full h-auto object-contain"
+                          onContextMenu={(e) => e.preventDefault()}
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className="w-full aspect-[3/4] animate-pulse bg-gray-200 flex items-center justify-center">
+                           <span className="text-gray-400 text-sm">Loading page {currentPage + 1}...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <HTMLFlipBook
+                    ref={bookRef}
+                    width={dimensions.width}
+                    height={dimensions.height}
+                    size="fixed"
+                    drawShadow={true}
+                    flippingTime={700}
+                    usePortrait={false}
+                    showCover={true}
+                    mobileScrollSupport={false}
+                    onFlip={(e) => setCurrentPage(e.data)}
+                    className="flipbook"
+                    style={{ margin: '0 auto' }}
+                  >
+                    {pages.map((pageDataUrl, index) => (
+                      <FlipPage key={index} number={index} dataUrl={pageDataUrl} />
+                    ))}
+                  </HTMLFlipBook>
+                )}
+              </div>
             )}
           </div>
 
           {/* Controls bar */}
-          {!loading && !error && totalPages > 0 && (
-            <div className="shrink-0 bg-slate-900/95 border-t border-white/10 px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
-              {/* Page navigation */}
-              <div className="flex items-center gap-1">
+          {!isLoadingInitial && !error && pages.length > 0 && (
+            <div className="shrink-0 bg-slate-900/95 border-t border-white/10 px-4 py-3 flex items-center justify-between gap-2 z-50">
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={currentPage <= 1}
-                  className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:ring-1 focus-visible:ring-[var(--color-leo-gold)] focus-visible:outline-none"
-                  aria-label="Previous page"
-                  id="magazine-viewer-prev"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-
-                <form onSubmit={handlePageJump} className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    value={jumpInput || currentPage}
-                    onChange={(e) => setJumpInput(e.target.value)}
-                    onFocus={() => setJumpInput(String(currentPage))}
-                    onBlur={() => setJumpInput('')}
-                    className="w-12 text-center bg-white/10 text-white text-sm rounded-lg border border-white/20 py-1 focus:outline-none focus:border-[var(--color-leo-gold)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    aria-label="Current page"
-                    id="magazine-viewer-page-input"
-                  />
-                  <span className="text-white/50 text-xs">/ {totalPages}</span>
-                </form>
-
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                  disabled={currentPage >= totalPages}
-                  className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:ring-1 focus-visible:ring-[var(--color-leo-gold)] focus-visible:outline-none"
-                  aria-label="Next page"
-                  id="magazine-viewer-next"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-
-              {/* Zoom controls */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={handleZoomOut}
+                  onClick={() => {
+                    if (!isMobile) bookRef.current?.pageFlip()?.flipPrev();
+                    else setCurrentPage(p => Math.max(p - 1, 0));
+                  }}
                   className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-1 focus-visible:ring-[var(--color-leo-gold)] focus-visible:outline-none"
-                  aria-label="Zoom out"
-                  id="magazine-viewer-zoom-out"
+                  aria-label="Previous page"
                 >
-                  <ZoomOut size={16} />
+                  <ChevronLeft size={20} />
                 </button>
-                <span className="text-white/50 text-xs w-12 text-center">
-                  {Math.round(scale * 100)}%
+                <span className="text-white/80 text-sm font-medium min-w-[80px] text-center">
+                  {!isMobile && currentPage > 0 && currentPage < totalPages - 1
+                    ? `${currentPage + 1}–${currentPage + 2} of ${totalPages}`
+                    : `Page ${currentPage + 1} of ${totalPages}`}
                 </span>
                 <button
-                  onClick={handleZoomIn}
+                  onClick={() => {
+                    if (!isMobile) bookRef.current?.pageFlip()?.flipNext();
+                    else setCurrentPage(p => Math.min(p + 1, totalPages - 1));
+                  }}
                   className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-1 focus-visible:ring-[var(--color-leo-gold)] focus-visible:outline-none"
-                  aria-label="Zoom in"
-                  id="magazine-viewer-zoom-in"
+                  aria-label="Next page"
                 >
-                  <ZoomIn size={16} />
+                  <ChevronRight size={20} />
                 </button>
               </div>
 
-              {/* Download button — only if allowed */}
-              {magazine.is_downloadable && (
-                <a
-                  href={downloadUrl}
-                  download={`${magazine.slug || magazine.id}.pdf`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-leo-gold)] text-[#600000] text-xs font-bold rounded-lg hover:opacity-90 transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-                  aria-label="Download PDF"
-                  id="magazine-viewer-download"
-                >
-                  <Download size={13} />
-                  <span className="hidden sm:inline">Download</span>
-                </a>
-              )}
-            </div>
-          )}
+              <div className="flex items-center gap-3">
+                {renderedCount < totalPages && (
+                  <span className="hidden sm:inline-block px-2 py-1 bg-white/10 text-white/50 text-[10px] rounded uppercase font-semibold tracking-wider">
+                    Rendering {renderedCount}/{totalPages}
+                  </span>
+                )}
+                
+                {magazine.is_downloadable && (
+                  <a
+                    href={downloadUrl}
+                    download={`${magazine.slug || magazine.id}.pdf`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-leo-gold)] text-[#600000] text-xs font-bold rounded-lg hover:opacity-90 transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+                    aria-label="Download PDF"
+                  >
+                    <Download size={13} />
+                    <span className="hidden sm:inline">Download</span>
+                  </a>
+                )}
 
-          {/* Mobile: vertical scroll hint (≤768px) */}
-          {isMobile && !loading && !error && totalPages > 1 && (
-            <p className="text-center text-white/40 text-[10px] pb-1">
-              Use ← → keys or buttons to navigate pages
-            </p>
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-1 focus-visible:ring-[var(--color-leo-gold)] focus-visible:outline-none"
+                  aria-label="Toggle Fullscreen"
+                >
+                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                </button>
+              </div>
+            </div>
           )}
         </motion.div>
       )}

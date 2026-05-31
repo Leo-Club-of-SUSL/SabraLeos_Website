@@ -27,6 +27,7 @@ import { securityService } from '../lib/securityService';
 import { imageService } from '../lib/imageService';
 import type { SecurityLog } from '../lib/securityService';
 import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
+import { isCloudinaryUrl, extractCloudinaryPublicId } from '../utils/cloudinaryUtils';
 
 type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'messages' | 'security' | 'analytics' | 'logs' | 'magazines';
 
@@ -169,6 +170,12 @@ const AdminDashboard = () => {
   const magPdfInputRef = useRef<HTMLInputElement>(null);
   // magSlugDebounceRef reserved for future slug validation debounce
 
+  // ---- Cloudinary Storage Audit State ----
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditResults, setAuditResults] = useState<{ orphaned_public_ids: string[]; total_in_cloudinary: number; total_in_db: number } | null>(null);
+  const [deletingOrphans, setDeletingOrphans] = useState(false);
+
   // ---- Handlers ----
   const resetForms = () => {
     setProjectForm({ category: 'Upcoming', status: 'Active' });
@@ -254,17 +261,34 @@ const AdminDashboard = () => {
       message: 'This action cannot be undone. Are you sure you want to permanently delete this item?',
       onConfirm: async () => {
         try {
-          // 1. Delete from storage first
+          // 1. Collect Cloudinary public_ids if deleting gallery or awards
+          const publicIds: string[] = [];
+          if (activeTab === 'gallery' && item.src && isCloudinaryUrl(item.src)) {
+            const pid = extractCloudinaryPublicId(item.src);
+            if (pid) publicIds.push(pid);
+          }
+          if (activeTab === 'awards') {
+            if (item.image && isCloudinaryUrl(item.image)) {
+              const pid = extractCloudinaryPublicId(item.image);
+              if (pid) publicIds.push(pid);
+            }
+            if (item.thumbnail && isCloudinaryUrl(item.thumbnail)) {
+              const pid = extractCloudinaryPublicId(item.thumbnail);
+              if (pid) publicIds.push(pid);
+            }
+          }
+
+          // 2. Delete from storage (for projects, leadership, site-content)
           const imageUrl = item.image || item.image_url || item.src;
           const bucket = activeTab === 'projects' ? (import.meta.env.VITE_SUPABASE_BUCKET_PROJECTS || 'projects') : 
                          activeTab === 'leadership' ? (import.meta.env.VITE_SUPABASE_BUCKET_LEADERSHIP || 'leadership') :
                          activeTab === 'content' ? (import.meta.env.VITE_SUPABASE_BUCKET_CONTENT || 'site-content') : undefined;
           
-          if (imageUrl) {
+          if (imageUrl && !isCloudinaryUrl(imageUrl)) {
             await imageService.deleteFromStorage(imageUrl, bucket);
           }
 
-          // 2. Delete from DB
+          // 3. Delete from DB
           if (activeTab === 'projects') await deleteProject(item.id);
           if (activeTab === 'leadership' && type) await deleteMember(item.id, type as any);
           if (activeTab === 'gallery') await deleteImage(item.id);
@@ -273,6 +297,28 @@ const AdminDashboard = () => {
             await messagesAPI.delete(item.id);
             fetchMessages();
           }
+
+          // 4. Delete from Cloudinary (fire-and-forget)
+          if (publicIds.length > 0 && session?.access_token) {
+            fetch('/api/admin/cloudinary-delete', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ public_ids: publicIds }),
+            }).then(async (res) => {
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                console.warn('[Cloudinary cleanup] Delete failed for IDs:', publicIds, body);
+              } else {
+                console.log('[Cloudinary cleanup] Deleted IDs:', publicIds);
+              }
+            }).catch((err) => {
+              console.warn('[Cloudinary cleanup] Network error during delete:', err);
+            });
+          }
+
           showToast('Item deleted successfully', 'success');
         } catch (err) { 
           console.error(err);
@@ -362,7 +408,44 @@ const AdminDashboard = () => {
               : activeTab === 'leadership' 
                 ? (import.meta.env.VITE_SUPABASE_BUCKET_LEADERSHIP || 'leadership') 
                 : undefined;
-            await imageService.deleteFromStorage(oldImageUrl, bucket);
+
+            if (isCloudinaryUrl(oldImageUrl)) {
+              const pid = extractCloudinaryPublicId(oldImageUrl);
+              if (pid && session?.access_token) {
+                fetch('/api/admin/cloudinary-delete', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({ public_ids: [pid] }),
+                }).catch((err) => {
+                  console.warn('[Cloudinary cleanup] Network error during image swap:', err);
+                });
+              }
+            } else {
+              await imageService.deleteFromStorage(oldImageUrl, bucket);
+            }
+          }
+
+          // Handle award thumbnail swap
+          if (activeTab === 'awards' && editingItem && selectedThumbnail && editingItem.thumbnail) {
+            const oldThumbUrl = editingItem.thumbnail;
+            if (isCloudinaryUrl(oldThumbUrl)) {
+              const pid = extractCloudinaryPublicId(oldThumbUrl);
+              if (pid && session?.access_token) {
+                fetch('/api/admin/cloudinary-delete', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({ public_ids: [pid] }),
+                }).catch((err) => {
+                  console.warn('[Cloudinary cleanup] Network error during thumbnail swap:', err);
+                });
+              }
+            }
           }
 
           currentImageUrl = uploadedUrl;
@@ -633,6 +716,67 @@ const AdminDashboard = () => {
     catch (err: any) { showToast(`Failed: ${err.message}`, 'error'); }
   };
 
+  // ---- Cloudinary Storage Audit Handlers ----
+  const handleRunAuditClick = async () => {
+    if (!session?.access_token) return;
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    setAuditResults(null);
+    try {
+      const res = await fetch('/api/admin/cloudinary-audit', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      const data = await res.json();
+      setAuditResults(data);
+    } catch (err) {
+      console.error('Audit failed:', err);
+      showToast('Failed to run storage audit', 'error');
+      setAuditModalOpen(false);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const handleDeleteAllOrphans = async () => {
+    if (!session?.access_token || !auditResults?.orphaned_public_ids || auditResults.orphaned_public_ids.length === 0) return;
+    
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete All Orphans',
+      message: `Are you sure you want to permanently delete all ${auditResults.orphaned_public_ids.length} orphaned files from Cloudinary? This action cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        setDeletingOrphans(true);
+        try {
+          const res = await fetch('/api/admin/cloudinary-delete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ public_ids: auditResults.orphaned_public_ids }),
+          });
+          if (!res.ok) {
+            throw new Error(await res.text());
+          }
+          const data = await res.json();
+          showToast(`Successfully deleted ${data.deleted.length} orphaned files.`, 'success');
+          // Re-run audit to verify they are gone
+          handleRunAuditClick();
+        } catch (err) {
+          console.error('Failed to delete orphans:', err);
+          showToast('Failed to delete orphaned files', 'error');
+        } finally {
+          setDeletingOrphans(false);
+        }
+      }
+    });
+  };
 
   // Message handlers
   const fetchMessages = async () => {
@@ -798,13 +942,23 @@ const AdminDashboard = () => {
               </p>
             </div>
             {['projects', 'leadership', 'gallery', 'awards'].includes(activeTab) && (
-              <button 
-                onClick={handleAddClick} 
-                className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg focus-visible:ring-2 focus-visible:ring-leo-maroon"
-                aria-label={`Add new ${activeTab.slice(0, -1)}`}
-              >
-                <Plus size={16} /> Add New
-              </button>
+              <div className="flex gap-2">
+                {activeTab === 'gallery' && (
+                  <button 
+                    onClick={handleRunAuditClick} 
+                    className="bg-white dark:bg-slate-750 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all text-sm font-medium shadow-sm focus-visible:ring-2 focus-visible:ring-[var(--color-leo-maroon)] cursor-pointer"
+                  >
+                    <Shield size={16} /> Run Storage Audit
+                  </button>
+                )}
+                <button 
+                  onClick={handleAddClick} 
+                  className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg focus-visible:ring-2 focus-visible:ring-leo-maroon cursor-pointer"
+                  aria-label={`Add new ${activeTab.slice(0, -1)}`}
+                >
+                  <Plus size={16} /> Add New
+                </button>
+              </div>
             )}
             {activeTab === 'magazines' && (
               <button 
@@ -1735,6 +1889,106 @@ const AdminDashboard = () => {
                 className="px-6 py-2.5 rounded-xl bg-[var(--color-leo-maroon)] text-white text-sm font-bold hover:bg-red-900 transition-all shadow-md active:scale-95"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──── CLOUDINARY STORAGE AUDIT MODAL ──── */}
+      {auditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setAuditModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}
+            style={{ animation: 'dialogPop 0.2s ease-out' }}>
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <Shield size={18} className="text-[var(--color-leo-gold)]" /> Cloudinary Storage Audit
+              </h3>
+              <button onClick={() => setAuditModalOpen(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-400 cursor-pointer"><X size={20} /></button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {auditLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <Loader2 size={36} className="animate-spin text-[var(--color-leo-maroon)]" />
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 animate-pulse">
+                    Scanning Cloudinary files against Supabase database...
+                  </p>
+                </div>
+              ) : auditResults ? (
+                <div className="space-y-6">
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Cloudinary Files</p>
+                      <p className="text-xl font-bold text-gray-800 dark:text-white">{auditResults.total_in_cloudinary}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-405 mb-1">DB References</p>
+                      <p className="text-xl font-bold text-gray-800 dark:text-white">{auditResults.total_in_db}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Orphaned Files</p>
+                      <p className={`text-xl font-bold ${auditResults.orphaned_public_ids.length > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                        {auditResults.orphaned_public_ids.length}
+                      </p>
+                    </div>
+                  </div>
+
+                  {auditResults.orphaned_public_ids.length === 0 ? (
+                    <div className="p-8 text-center bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/20 space-y-2">
+                      <CheckCircle size={32} className="text-emerald-500 mx-auto" />
+                      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-400">Storage is Clean!</p>
+                      <p className="text-xs text-emerald-600/80 dark:text-emerald-500/60">No orphaned resources detected in Cloudinary.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-amber-50 text-amber-800 dark:bg-amber-900/10 dark:text-amber-400 rounded-xl border border-amber-200 dark:border-amber-900/30 flex gap-3 text-xs leading-relaxed">
+                        <AlertTriangle size={20} className="shrink-0 text-amber-500" />
+                        <div>
+                          <p className="font-bold">Orphaned files detected</p>
+                          <p className="opacity-90 mt-0.5">
+                            These resources exist in your Cloudinary account but are not referenced in the website gallery or awards lists. They may be left over from deleted records.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Orphaned public_ids</p>
+                        <div className="max-h-40 overflow-y-auto border border-gray-100 dark:border-slate-700 rounded-xl p-3 bg-gray-50 dark:bg-slate-900 font-mono text-[11px] text-gray-600 dark:text-gray-400 divide-y divide-gray-100 dark:divide-slate-800">
+                          {auditResults.orphaned_public_ids.map((id) => (
+                            <div key={id} className="py-1.5 truncate" title={id}>
+                              {id}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            
+            <div className="p-6 border-t border-gray-100 dark:border-slate-700 flex justify-end gap-3 shrink-0">
+              {auditResults && auditResults.orphaned_public_ids.length > 0 && (
+                <button 
+                  onClick={handleDeleteAllOrphans}
+                  disabled={deletingOrphans || auditLoading}
+                  className="px-4 py-2.5 rounded-xl text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-md animate-none"
+                >
+                  {deletingOrphans ? (
+                    <><Loader2 size={16} className="animate-spin" /> Deleting...</>
+                  ) : (
+                    <><Trash2 size={16} /> Delete All Orphans</>
+                  )}
+                </button>
+              )}
+              <button 
+                onClick={() => setAuditModalOpen(false)} 
+                disabled={deletingOrphans || auditLoading}
+                className="px-6 py-2.5 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-200 dark:hover:bg-slate-600 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                Close
               </button>
             </div>
           </div>

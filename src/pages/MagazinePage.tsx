@@ -1,12 +1,12 @@
 // src/pages/MagazinePage.tsx
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { BookOpen, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MagazineCard from '../components/magazine/MagazineCard';
-import MagazineViewer from '../components/magazine/MagazineViewer';
+const MagazineViewer = React.lazy(() => import('../components/magazine/MagazineViewer'));
 import { fetchMagazines } from '../services/magazineService';
 import type { Magazine } from '../types/magazine';
 
@@ -287,10 +287,12 @@ const MagazinePage = () => {
       <Footer />
 
       {/* PDF Viewer Modal */}
-      <MagazineViewer
-        magazine={selectedMagazine}
-        onClose={() => setSelectedMagazine(null)}
-      />
+      <Suspense fallback={null}>
+        <MagazineViewer
+          magazine={selectedMagazine}
+          onClose={() => setSelectedMagazine(null)}
+        />
+      </Suspense>
     </div>
   );
 };
