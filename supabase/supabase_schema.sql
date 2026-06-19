@@ -22,14 +22,19 @@ CREATE TABLE IF NOT EXISTS leadership (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   position TEXT NOT NULL,
-  role_type TEXT NOT NULL CHECK (role_type IN ('Executive', 'Board', 'Chief')),
+  -- Expanded to include all role types used by the application
+  role_type TEXT NOT NULL CHECK (role_type IN ('Executive', 'Board', 'Chief', 'Advisor', 'PastPresident')),
   image_url TEXT NOT NULL,
   year TEXT NOT NULL,
+  service_year TEXT,
   sort_order INTEGER DEFAULT 0,
+  row_number INTEGER DEFAULT 1,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- Create index for faster role_type filtering
 CREATE INDEX IF NOT EXISTS idx_leadership_role_type ON leadership(role_type);
+-- Create index for sort order queries
+CREATE INDEX IF NOT EXISTS idx_leadership_sort_order ON leadership(sort_order);
 -- ============================================
 -- Table: site_content (key-value CMS store)
 -- ============================================
@@ -62,10 +67,13 @@ CREATE TABLE IF NOT EXISTS awards (
   title TEXT NOT NULL,
   description TEXT,
   image_url TEXT NOT NULL,
+  thumbnail_url TEXT,
   year TEXT,
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- Create index for sort order queries
+CREATE INDEX IF NOT EXISTS idx_awards_sort_order ON awards(sort_order);
 -- ============================================
 -- Row Level Security (RLS) Policies
 -- ============================================
@@ -97,6 +105,9 @@ CREATE POLICY "Allow public read access on gallery" ON gallery FOR
 SELECT TO public USING (true);
 -- Allow authenticated users to manage gallery
 CREATE POLICY "Allow authenticated users to manage gallery" ON gallery FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- Create indexes for gallery sort and filter
+CREATE INDEX IF NOT EXISTS idx_gallery_sort_order ON gallery(sort_order);
+CREATE INDEX IF NOT EXISTS idx_gallery_show_on_home ON gallery(show_on_home);
 -- Enable RLS on awards table
 ALTER TABLE awards ENABLE ROW LEVEL SECURITY;
 -- Allow public read access to awards
@@ -302,9 +313,12 @@ CREATE INDEX IF NOT EXISTS idx_security_logs_email ON security_logs(email);
 CREATE INDEX IF NOT EXISTS idx_security_logs_event_type ON security_logs(event_type);
 CREATE INDEX IF NOT EXISTS idx_security_logs_created_at ON security_logs(created_at DESC);
 ALTER TABLE security_logs ENABLE ROW LEVEL SECURITY;
--- Anyone can insert logs (needed for failed login tracking from anon key)
+-- Public can insert logs ONLY for valid event types (prevents log poisoning of brute-force counter)
+-- Note: the best protection is Supabase Auth's built-in rate limiting; this is a secondary control
 CREATE POLICY "Allow public insert on security_logs" ON security_logs FOR
-INSERT TO public WITH CHECK (true);
+INSERT TO public WITH CHECK (
+  event_type IN ('login_failed', 'login_success', 'logout', 'account_locked', 'brute_force_detected')
+);
 -- Only authenticated users can read logs
 CREATE POLICY "Allow authenticated read on security_logs" ON security_logs FOR
 SELECT TO authenticated USING (true);
@@ -346,3 +360,100 @@ SELECT TO authenticated USING (true);
 
 -- Only authenticated users can delete contact messages
 CREATE POLICY "Allow authenticated delete on contact_messages" ON contact_messages FOR DELETE TO authenticated USING (true);
+
+-- Index for admin inbox ordering
+CREATE INDEX IF NOT EXISTS idx_contact_messages_created_at ON contact_messages(created_at DESC);
+
+-- ============================================
+-- Table: content_logs (Admin audit trail)
+-- ============================================
+CREATE TABLE IF NOT EXISTS content_logs (
+  id BIGSERIAL PRIMARY KEY,
+  action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'deleted')),
+  section TEXT NOT NULL,
+  description TEXT NOT NULL,
+  performed_by TEXT NOT NULL, -- email of the admin who performed the action
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_content_logs_created_at ON content_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_content_logs_section ON content_logs(section);
+
+ALTER TABLE content_logs ENABLE ROW LEVEL SECURITY;
+
+-- Only authenticated admins can insert content logs
+CREATE POLICY "Allow authenticated insert on content_logs" ON content_logs FOR
+INSERT TO authenticated WITH CHECK (true);
+
+-- Only authenticated admins can read content logs
+CREATE POLICY "Allow authenticated read on content_logs" ON content_logs FOR
+SELECT TO authenticated USING (true);
+
+-- Only authenticated admins can delete content logs
+CREATE POLICY "Allow authenticated delete on content_logs" ON content_logs FOR
+DELETE TO authenticated USING (true);
+
+-- ============================================
+-- Table: magazines (E-Magazine feature)
+-- ============================================
+-- Enable moddatetime extension for auto-updating updated_at
+CREATE EXTENSION IF NOT EXISTS moddatetime SCHEMA extensions;
+
+CREATE TABLE IF NOT EXISTS magazines (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title           TEXT NOT NULL,
+  slug            TEXT UNIQUE NOT NULL,
+  volume_number   INTEGER,
+  issue_number    INTEGER,
+  published_date  DATE,
+  description     TEXT,
+  cover_image_path TEXT,        -- Supabase Storage path (not public URL)
+  pdf_file_path   TEXT NOT NULL, -- Supabase Storage path (not public URL)
+  is_published    BOOLEAN NOT NULL DEFAULT FALSE,
+  is_downloadable BOOLEAN NOT NULL DEFAULT TRUE,
+  tags            TEXT[],        -- PostgreSQL array
+  view_count      INTEGER NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Auto-update updated_at on every row change
+CREATE OR REPLACE TRIGGER magazines_updated_at
+  BEFORE UPDATE ON magazines
+  FOR EACH ROW EXECUTE FUNCTION extensions.moddatetime(updated_at);
+
+-- Indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_magazines_is_published  ON magazines(is_published);
+CREATE INDEX IF NOT EXISTS idx_magazines_published_date ON magazines(published_date DESC);
+CREATE INDEX IF NOT EXISTS idx_magazines_slug          ON magazines(slug);
+
+-- ============================================
+-- RLS for magazines table
+-- ============================================
+ALTER TABLE magazines ENABLE ROW LEVEL SECURITY;
+
+-- Public can SELECT only published magazines
+CREATE POLICY "Allow public read published magazines"
+  ON magazines FOR SELECT
+  TO public
+  USING (is_published = TRUE);
+
+-- Authenticated admins can INSERT, UPDATE, DELETE any magazine
+CREATE POLICY "Allow authenticated users to manage magazines"
+  ON magazines FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- ============================================
+-- RPC: increment_magazine_view
+-- ============================================
+-- Atomic increment for magazine view counts
+CREATE OR REPLACE FUNCTION increment_magazine_view(magazine_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE magazines
+  SET view_count = view_count + 1
+  WHERE id = magazine_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

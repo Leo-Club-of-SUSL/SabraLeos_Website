@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent, ReactNode, FormEvent, ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, 
   Loader2, Settings, Shield, LogOut, AlertTriangle, CheckCircle, 
   XCircle, Lock, RefreshCw, Mail, Clock, ImagePlus, Trophy, 
-  BarChart3, ArrowUp, ArrowDown
+  BarChart3, ArrowUp, ArrowDown, BookOpen, Eye, EyeOff
 } from 'lucide-react';
 
 import { messagesAPI } from '../lib/supabaseService';
+import { adminFetchMagazines, adminCreateMagazine, adminUpdateMagazine, adminDeleteMagazine, adminUploadFile, generateSlug } from '../services/magazineService';
+import type { AdminMagazine } from '../types/magazine';
+import imageCompression from 'browser-image-compression';
 
 import AnalyticsWidget from '../components/admin/AnalyticsWidget';
 
@@ -24,8 +28,9 @@ import { securityService } from '../lib/securityService';
 import { imageService } from '../lib/imageService';
 import type { SecurityLog } from '../lib/securityService';
 import type { Project, LeadershipMember, GalleryImage, Award } from '../types';
+import { isCloudinaryUrl, extractCloudinaryPublicId } from '../utils/cloudinaryUtils';
 
-type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'messages' | 'security' | 'analytics' | 'logs';
+type TabType = 'projects' | 'leadership' | 'gallery' | 'awards' | 'content' | 'messages' | 'security' | 'analytics' | 'logs' | 'magazines';
 
 // ================================================================
 // Tab Config
@@ -36,6 +41,7 @@ const TAB_CONFIG: { key: TabType; label: string; icon: any; color: string }[] = 
   { key: 'leadership', label: 'Team', icon: Users, color: 'text-gray-400' },
   { key: 'gallery', label: 'Gallery', icon: Image, color: 'text-gray-400' },
   { key: 'awards', label: 'Awards', icon: Trophy, color: 'text-gray-400' },
+  { key: 'magazines', label: 'E-Magazines', icon: BookOpen, color: 'text-gray-400' },
   { key: 'content', label: 'Content', icon: Settings, color: 'text-gray-400' },
   { key: 'messages', label: 'Messages', icon: Mail, color: 'text-gray-400' },
   { key: 'logs', label: 'Activity Log', icon: Clock, color: 'text-gray-400' },
@@ -80,7 +86,7 @@ const SECTION_FIELDS: Record<string, { key: string; label: string; type: 'text' 
 // ================================================================
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut, user, session } = useAuth();
   const { showToast } = useToast();
   const {
     projects, leadership, gallery, siteContent, awards,
@@ -143,6 +149,33 @@ const AdminDashboard = () => {
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean; title: string; message: string; onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
+
+  // ---- Magazines state ----
+  const [magazines, setMagazines] = useState<AdminMagazine[]>([]);
+  const [magTotal, setMagTotal] = useState(0);
+  const [magPage, setMagPage] = useState(1);
+  const [magTotalPages, setMagTotalPages] = useState(1);
+  const [magLoading, setMagLoading] = useState(false);
+  const [magModalOpen, setMagModalOpen] = useState(false);
+  const [editingMag, setEditingMag] = useState<AdminMagazine | null>(null);
+  const [magForm, setMagForm] = useState<Partial<AdminMagazine & { tagsInput: string }>>({});
+  const [magCoverFile, setMagCoverFile] = useState<File | null>(null);
+  const [magPdfFile, setMagPdfFile] = useState<File | null>(null);
+  const [magCoverPreview, setMagCoverPreview] = useState<string | null>(null);
+  const [magCoverProgress, setMagCoverProgress] = useState(0);
+  const [magPdfProgress, setMagPdfProgress] = useState(0);
+  const [magSubmitting, setMagSubmitting] = useState(false);
+  const [, setMagSlugError] = useState('');
+  const [magFormErrors, setMagFormErrors] = useState<Record<string, string>>({});
+  const magCoverInputRef = useRef<HTMLInputElement>(null);
+  const magPdfInputRef = useRef<HTMLInputElement>(null);
+  // magSlugDebounceRef reserved for future slug validation debounce
+
+  // ---- Cloudinary Storage Audit State ----
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditResults, setAuditResults] = useState<{ orphaned_public_ids: string[]; total_in_cloudinary: number; total_in_db: number } | null>(null);
+  const [deletingOrphans, setDeletingOrphans] = useState(false);
 
   // ---- Handlers ----
   const resetForms = () => {
@@ -229,17 +262,34 @@ const AdminDashboard = () => {
       message: 'This action cannot be undone. Are you sure you want to permanently delete this item?',
       onConfirm: async () => {
         try {
-          // 1. Delete from storage first
+          // 1. Collect Cloudinary public_ids if deleting gallery or awards
+          const publicIds: string[] = [];
+          if (activeTab === 'gallery' && item.src && isCloudinaryUrl(item.src)) {
+            const pid = extractCloudinaryPublicId(item.src);
+            if (pid) publicIds.push(pid);
+          }
+          if (activeTab === 'awards') {
+            if (item.image && isCloudinaryUrl(item.image)) {
+              const pid = extractCloudinaryPublicId(item.image);
+              if (pid) publicIds.push(pid);
+            }
+            if (item.thumbnail && isCloudinaryUrl(item.thumbnail)) {
+              const pid = extractCloudinaryPublicId(item.thumbnail);
+              if (pid) publicIds.push(pid);
+            }
+          }
+
+          // 2. Delete from storage (for projects, leadership, site-content)
           const imageUrl = item.image || item.image_url || item.src;
           const bucket = activeTab === 'projects' ? (import.meta.env.VITE_SUPABASE_BUCKET_PROJECTS || 'projects') : 
                          activeTab === 'leadership' ? (import.meta.env.VITE_SUPABASE_BUCKET_LEADERSHIP || 'leadership') :
                          activeTab === 'content' ? (import.meta.env.VITE_SUPABASE_BUCKET_CONTENT || 'site-content') : undefined;
           
-          if (imageUrl) {
+          if (imageUrl && !isCloudinaryUrl(imageUrl)) {
             await imageService.deleteFromStorage(imageUrl, bucket);
           }
 
-          // 2. Delete from DB
+          // 3. Delete from DB
           if (activeTab === 'projects') await deleteProject(item.id);
           if (activeTab === 'leadership' && type) await deleteMember(item.id, type as any);
           if (activeTab === 'gallery') await deleteImage(item.id);
@@ -248,6 +298,28 @@ const AdminDashboard = () => {
             await messagesAPI.delete(item.id);
             fetchMessages();
           }
+
+          // 4. Delete from Cloudinary (fire-and-forget)
+          if (publicIds.length > 0 && session?.access_token) {
+            fetch('/api/admin/cloudinary-delete', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ public_ids: publicIds }),
+            }).then(async (res) => {
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                console.warn('[Cloudinary cleanup] Delete failed for IDs:', publicIds, body);
+              } else {
+                console.log('[Cloudinary cleanup] Deleted IDs:', publicIds);
+              }
+            }).catch((err) => {
+              console.warn('[Cloudinary cleanup] Network error during delete:', err);
+            });
+          }
+
           showToast('Item deleted successfully', 'success');
         } catch (err) { 
           console.error(err);
@@ -337,7 +409,44 @@ const AdminDashboard = () => {
               : activeTab === 'leadership' 
                 ? (import.meta.env.VITE_SUPABASE_BUCKET_LEADERSHIP || 'leadership') 
                 : undefined;
-            await imageService.deleteFromStorage(oldImageUrl, bucket);
+
+            if (isCloudinaryUrl(oldImageUrl)) {
+              const pid = extractCloudinaryPublicId(oldImageUrl);
+              if (pid && session?.access_token) {
+                fetch('/api/admin/cloudinary-delete', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({ public_ids: [pid] }),
+                }).catch((err) => {
+                  console.warn('[Cloudinary cleanup] Network error during image swap:', err);
+                });
+              }
+            } else {
+              await imageService.deleteFromStorage(oldImageUrl, bucket);
+            }
+          }
+
+          // Handle award thumbnail swap
+          if (activeTab === 'awards' && editingItem && selectedThumbnail && editingItem.thumbnail) {
+            const oldThumbUrl = editingItem.thumbnail;
+            if (isCloudinaryUrl(oldThumbUrl)) {
+              const pid = extractCloudinaryPublicId(oldThumbUrl);
+              if (pid && session?.access_token) {
+                fetch('/api/admin/cloudinary-delete', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({ public_ids: [pid] }),
+                }).catch((err) => {
+                  console.warn('[Cloudinary cleanup] Network error during thumbnail swap:', err);
+                });
+              }
+            }
           }
 
           currentImageUrl = uploadedUrl;
@@ -518,6 +627,157 @@ const AdminDashboard = () => {
   };
 
   const handleSignOut = async () => { await signOut(); navigate('/admin', { replace: true }); };
+  // ================================================================
+  // Magazine handlers
+  // ================================================================
+  const fetchAdminMagazines = async (p: number) => {
+    if (!session) return;
+    setMagLoading(true);
+    try {
+      const res = await adminFetchMagazines(session.access_token, p, 20);
+      setMagazines(res.data);
+      setMagTotal(res.total);
+      setMagPage(p);
+      setMagTotalPages(res.totalPages);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to load magazines', 'error');
+    } finally {
+      setMagLoading(false);
+    }
+  };
+
+  const openMagModal = (mag?: AdminMagazine) => {
+    setEditingMag(mag || null);
+    setMagForm(mag ? { ...mag, tagsInput: (mag.tags || []).join(', ') } : { is_published: false, is_downloadable: true, tagsInput: '' });
+    setMagCoverFile(null); setMagPdfFile(null);
+    setMagCoverPreview(mag?.cover_url || null);
+    setMagCoverProgress(0); setMagPdfProgress(0);
+    setMagSlugError(''); setMagFormErrors({}); setMagModalOpen(true);
+  };
+
+  const closeMagModal = () => { setMagModalOpen(false); setEditingMag(null); setMagCoverFile(null); setMagPdfFile(null); setMagCoverPreview(null); };
+
+  const handleMagTitleChange = (val: string) => { setMagForm(f => ({ ...f, title: val, slug: editingMag ? f.slug : generateSlug(val) })); };
+
+  const handleMagCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setMagFormErrors(errs => ({ ...errs, cover: 'Cover must be under 5MB' })); return; }
+    setMagFormErrors(errs => ({ ...errs, cover: '' })); setMagCoverFile(file); setMagCoverPreview(URL.createObjectURL(file));
+  };
+
+  const handleMagPdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { setMagFormErrors(errs => ({ ...errs, pdf: 'PDF must be under 50MB' })); return; }
+    setMagFormErrors(errs => ({ ...errs, pdf: '' })); setMagPdfFile(file);
+  };
+
+  const handleMagSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    const token = session.access_token;
+    const errors: Record<string, string> = {};
+    if (!magForm.title?.trim()) errors.title = 'Title is required';
+    if (!magForm.slug?.trim()) errors.slug = 'Slug is required';
+    else if (!/^[a-z0-9-]+$/.test(magForm.slug)) errors.slug = 'Only lowercase letters, numbers, hyphens';
+    if (!editingMag && !magPdfFile) errors.pdf = 'PDF file is required on creation';
+    if (Object.values(errors).some(Boolean)) { setMagFormErrors(errors); return; }
+    setMagFormErrors({}); setMagSubmitting(true);
+    try {
+      let coverPath: string | undefined = editingMag?.cover_image_path || undefined;
+      let pdfPath: string = editingMag?.pdf_file_path || '';
+      if (magCoverFile) {
+        const compressed = await imageCompression(magCoverFile, { maxSizeMB: 1, maxWidthOrHeight: 1200, useWebWorker: true });
+        coverPath = await adminUploadFile(token, new File([compressed], magCoverFile.name, { type: compressed.type }), 'cover', setMagCoverProgress);
+      }
+      if (magPdfFile) { pdfPath = await adminUploadFile(token, magPdfFile, 'pdf', setMagPdfProgress); }
+      const tags = magForm.tagsInput ? (magForm.tagsInput as string).split(',').map((t: string) => t.trim()).filter(Boolean) : null;
+      const payload = { title: magForm.title!.trim(), slug: magForm.slug!.trim(), volume_number: magForm.volume_number ?? null, issue_number: magForm.issue_number ?? null, published_date: magForm.published_date || null, description: magForm.description || null, cover_image_path: coverPath || null, pdf_file_path: pdfPath, is_published: magForm.is_published ?? false, is_downloadable: magForm.is_downloadable ?? true, tags };
+      if (editingMag) { await adminUpdateMagazine(token, editingMag.id, payload); showToast('Magazine updated!', 'success'); }
+      else { await adminCreateMagazine(token, payload as any); showToast('Magazine created!', 'success'); }
+      closeMagModal(); fetchAdminMagazines(magPage);
+    } catch (err: any) {
+      if (err.message?.includes('Slug already exists')) { setMagFormErrors(f => ({ ...f, slug: 'Slug already exists' })); }
+      else { showToast(`Failed: ${err.message || 'Unknown error'}`, 'error'); }
+    } finally { setMagSubmitting(false); }
+  };
+
+  const handleMagDelete = (mag: AdminMagazine) => {
+    if (!session) return;
+    setConfirmDialog({ isOpen: true, title: 'Delete Magazine', message: `Permanently delete "${mag.title}"? PDF and cover will be removed from storage.`, onConfirm: async () => {
+      try { await adminDeleteMagazine(session.access_token, mag.id); showToast('Magazine deleted', 'success'); fetchAdminMagazines(magPage); }
+      catch (err: any) { showToast(`Delete failed: ${err.message}`, 'error'); }
+      setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+    }});
+  };
+
+  const handleMagTogglePublish = async (mag: AdminMagazine) => {
+    if (!session) return;
+    try { await adminUpdateMagazine(session.access_token, mag.id, { is_published: !mag.is_published }); showToast(mag.is_published ? 'Set to Draft' : 'Published!', 'success'); fetchAdminMagazines(magPage); }
+    catch (err: any) { showToast(`Failed: ${err.message}`, 'error'); }
+  };
+
+  // ---- Cloudinary Storage Audit Handlers ----
+  const handleRunAuditClick = async () => {
+    if (!session?.access_token) return;
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    setAuditResults(null);
+    try {
+      const res = await fetch('/api/admin/cloudinary-audit', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      const data = await res.json();
+      setAuditResults(data);
+    } catch (err) {
+      console.error('Audit failed:', err);
+      showToast('Failed to run storage audit', 'error');
+      setAuditModalOpen(false);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const handleDeleteAllOrphans = async () => {
+    if (!session?.access_token || !auditResults?.orphaned_public_ids || auditResults.orphaned_public_ids.length === 0) return;
+    
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete All Orphans',
+      message: `Are you sure you want to permanently delete all ${auditResults.orphaned_public_ids.length} orphaned files from Cloudinary? This action cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        setDeletingOrphans(true);
+        try {
+          const res = await fetch('/api/admin/cloudinary-delete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ public_ids: auditResults.orphaned_public_ids }),
+          });
+          if (!res.ok) {
+            throw new Error(await res.text());
+          }
+          const data = await res.json();
+          showToast(`Successfully deleted ${data.deleted.length} orphaned files.`, 'success');
+          // Re-run audit to verify they are gone
+          handleRunAuditClick();
+        } catch (err) {
+          console.error('Failed to delete orphans:', err);
+          showToast('Failed to delete orphaned files', 'error');
+        } finally {
+          setDeletingOrphans(false);
+        }
+      }
+    });
+  };
 
   // Message handlers
   const fetchMessages = async () => {
@@ -538,6 +798,7 @@ const AdminDashboard = () => {
     if (tab === 'content') initContentForm(contentSection);
     if (tab === 'security') { fetchSecurityLogs(); setAlertEmail(siteContent['alert_email'] || ''); }
     if (tab === 'messages') fetchMessages();
+    if (tab === 'magazines') fetchAdminMagazines(1);
     if (tab === 'logs') {
       setLogsLoading(true);
       fetchLogs().finally(() => setLogsLoading(false));
@@ -559,6 +820,7 @@ const AdminDashboard = () => {
     if (tab === 'gallery') return gallery.length;
     if (tab === 'awards') return awards.length;
     if (tab === 'messages') return messages.length;
+    if (tab === 'magazines') return magTotal > 0 ? magTotal : null;
     return null;
   };
 
@@ -595,6 +857,10 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+      <Helmet>
+        <title>Admin Dashboard | SabraLeos</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
@@ -674,18 +940,39 @@ const AdminDashboard = () => {
                 {activeTab === 'leadership' && 'Update team members and roles'}
                 {activeTab === 'gallery' && 'Upload and organize gallery images'}
                 {activeTab === 'awards' && 'Manage club awards and milestones'}
+                {activeTab === 'magazines' && 'Upload and manage E-Magazine issues'}
                 {activeTab === 'content' && 'Edit website text and settings'}
                 {activeTab === 'messages' && 'View and manage contact form submissions'}
                 {activeTab === 'security' && 'Monitor login activity and alerts'}
               </p>
             </div>
             {['projects', 'leadership', 'gallery', 'awards'].includes(activeTab) && (
+              <div className="flex gap-2">
+                {activeTab === 'gallery' && (
+                  <button 
+                    onClick={handleRunAuditClick} 
+                    className="bg-white dark:bg-slate-750 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all text-sm font-medium shadow-sm focus-visible:ring-2 focus-visible:ring-[var(--color-leo-maroon)] cursor-pointer"
+                  >
+                    <Shield size={16} /> Run Storage Audit
+                  </button>
+                )}
+                <button 
+                  onClick={handleAddClick} 
+                  className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg focus-visible:ring-2 focus-visible:ring-leo-maroon cursor-pointer"
+                  aria-label={`Add new ${activeTab.slice(0, -1)}`}
+                >
+                  <Plus size={16} /> Add New
+                </button>
+              </div>
+            )}
+            {activeTab === 'magazines' && (
               <button 
-                onClick={handleAddClick} 
+                onClick={() => openMagModal()} 
                 className="bg-[var(--color-leo-maroon)] text-white px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-red-900 transition-all text-sm font-medium shadow-md hover:shadow-lg focus-visible:ring-2 focus-visible:ring-leo-maroon"
-                aria-label={`Add new ${activeTab.slice(0, -1)}`}
+                aria-label="Add new magazine"
+                id="mag-add-btn"
               >
-                <Plus size={16} /> Add New
+                <Plus size={16} /> Add Magazine
               </button>
             )}
 
@@ -961,6 +1248,141 @@ const AdminDashboard = () => {
               )
             )}
 
+            {/* ──── MAGAZINES TAB ──── */}
+            {activeTab === 'magazines' && (
+              <div>
+                {magLoading ? (
+                  <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-[var(--color-leo-maroon)]" /></div>
+                ) : magazines.length === 0 ? (
+                  <EmptyState icon={BookOpen} text="No magazines yet" sub="Upload your first E-Magazine to get started" />
+                ) : (
+                  <div className="grid gap-3">
+                    {magazines.map(mag => (
+                      <div key={mag.id} className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors group">
+                        <div className="w-10 h-14 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-700 shrink-0 border border-gray-200 dark:border-slate-600">
+                          {mag.cover_url ? <img src={mag.cover_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><BookOpen size={16} className="text-gray-400" /></div>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-800 dark:text-white truncate">{mag.title}</p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${mag.is_published ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-gray-400'}`}>{mag.is_published ? 'Published' : 'Draft'}</span>
+                            {mag.volume_number && <span className="text-xs text-gray-400">Vol. {mag.volume_number}{mag.issue_number ? `, Issue ${mag.issue_number}` : ''}</span>}
+                            {mag.published_date && <span className="text-xs text-gray-400">{new Date(mag.published_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</span>}
+                            <span className="text-xs text-gray-400">{mag.view_count} views</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button onClick={() => handleMagTogglePublish(mag)} title={mag.is_published ? 'Unpublish' : 'Publish'} className="p-2 rounded-lg text-gray-400 hover:text-[var(--color-leo-maroon)] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">{mag.is_published ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                          <button onClick={() => openMagModal(mag)} className="p-2 rounded-lg text-gray-400 hover:text-[var(--color-leo-maroon)] hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Edit size={16} /></button>
+                          <button onClick={() => handleMagDelete(mag)} className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={16} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Pagination */}
+                {magTotalPages > 1 && (
+                  <div className="flex items-center justify-center gap-3 mt-8">
+                    <button onClick={() => fetchAdminMagazines(magPage - 1)} disabled={magPage <= 1} className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors">Prev</button>
+                    <span className="text-sm text-gray-500">{magPage} / {magTotalPages}</span>
+                    <button onClick={() => fetchAdminMagazines(magPage + 1)} disabled={magPage >= magTotalPages} className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors">Next</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ──── MAGAZINE MODAL ──── */}
+            {magModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={closeMagModal} role="presentation">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={editingMag ? 'Edit Magazine' : 'Add Magazine'}>
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">{editingMag ? 'Edit Magazine' : 'Add New Magazine'}</h3>
+                      <button onClick={closeMagModal} className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"><X size={18} /></button>
+                    </div>
+                    <form onSubmit={handleMagSubmit} className="space-y-4">
+                      {/* Title */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Title *</label>
+                        <input id="mag-title" value={magForm.title || ''} onChange={e => handleMagTitleChange(e.target.value)} className={inputCls} placeholder="e.g. SabraLeos Gazette Volume 3" required />
+                        {magFormErrors.title && <p className="text-red-500 text-xs mt-1">{magFormErrors.title}</p>}
+                      </div>
+                      {/* Slug */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Slug *</label>
+                        <input id="mag-slug" value={magForm.slug || ''} onChange={e => setMagForm(f => ({ ...f, slug: e.target.value }))} className={inputCls} placeholder="e.g. sabraleos-gazette-vol-3" required />
+                        {magFormErrors.slug && <p className="text-red-500 text-xs mt-1">{magFormErrors.slug}</p>}
+                      </div>
+                      {/* Volume / Issue */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Volume No.</label>
+                          <input id="mag-volume" type="number" min="1" value={magForm.volume_number ?? ''} onChange={e => setMagForm(f => ({ ...f, volume_number: e.target.value ? parseInt(e.target.value) : undefined }))} className={inputCls} placeholder="1" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Issue No.</label>
+                          <input id="mag-issue" type="number" min="1" value={magForm.issue_number ?? ''} onChange={e => setMagForm(f => ({ ...f, issue_number: e.target.value ? parseInt(e.target.value) : undefined }))} className={inputCls} placeholder="1" />
+                        </div>
+                      </div>
+                      {/* Published Date */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Published Date</label>
+                        <input id="mag-date" type="date" value={magForm.published_date || ''} onChange={e => setMagForm(f => ({ ...f, published_date: e.target.value }))} className={inputCls} />
+                      </div>
+                      {/* Description */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Description</label>
+                        <textarea id="mag-desc" value={magForm.description || ''} onChange={e => setMagForm(f => ({ ...f, description: e.target.value }))} className={inputCls} rows={3} placeholder="Brief description of this issue…" />
+                      </div>
+                      {/* Tags */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Tags (comma separated)</label>
+                        <input id="mag-tags" value={(magForm as any).tagsInput || ''} onChange={e => setMagForm(f => ({ ...f, tagsInput: e.target.value }))} className={inputCls} placeholder="events, annual, 2024" />
+                      </div>
+                      {/* Cover Image */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Cover Image (JPEG/PNG/WebP, max 5MB)</label>
+                        {magCoverPreview && <div className="mb-2 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-600" style={{ maxHeight: '120px' }}><img src={magCoverPreview} alt="Cover preview" className="w-full h-full object-cover" /></div>}
+                        <input ref={magCoverInputRef} type="file" accept="image/jpeg,image/png,image/webp" id="mag-cover-input" className="hidden" onChange={handleMagCoverChange} />
+                        <button type="button" onClick={() => magCoverInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-200 dark:border-slate-600 text-gray-500 dark:text-gray-400 hover:border-[var(--color-leo-maroon)] hover:text-[var(--color-leo-maroon)] transition-colors w-full justify-center text-sm font-medium">
+                          <ImagePlus size={16} />{magCoverFile ? magCoverFile.name : editingMag?.cover_image_path ? 'Replace cover image' : 'Select cover image'}
+                        </button>
+                        {magCoverProgress > 0 && magCoverProgress < 100 && <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 mt-2"><div className="h-full bg-gradient-to-r from-[var(--color-leo-maroon)] to-[var(--color-leo-gold)] rounded-full transition-all" style={{ width: `${magCoverProgress}%` }} /></div>}
+                        {magFormErrors.cover && <p className="text-red-500 text-xs mt-1">{magFormErrors.cover}</p>}
+                      </div>
+                      {/* PDF */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">PDF File * (max 50MB){editingMag && <span className="font-normal text-gray-400 ml-1">— leave blank to keep existing</span>}</label>
+                        <input ref={magPdfInputRef} type="file" accept="application/pdf" id="mag-pdf-input" className="hidden" onChange={handleMagPdfChange} />
+                        <button type="button" onClick={() => magPdfInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-200 dark:border-slate-600 text-gray-500 dark:text-gray-400 hover:border-[var(--color-leo-maroon)] hover:text-[var(--color-leo-maroon)] transition-colors w-full justify-center text-sm font-medium">
+                          <BookOpen size={16} />{magPdfFile ? magPdfFile.name : editingMag?.pdf_file_path ? 'Replace PDF file' : 'Select PDF file'}
+                        </button>
+                        {magPdfProgress > 0 && magPdfProgress < 100 && <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 mt-2"><div className="h-full bg-gradient-to-r from-[var(--color-leo-maroon)] to-[var(--color-leo-gold)] rounded-full transition-all" style={{ width: `${magPdfProgress}%` }} /></div>}
+                        {magFormErrors.pdf && <p className="text-red-500 text-xs mt-1">{magFormErrors.pdf}</p>}
+                      </div>
+                      {/* Toggles */}
+                      <div className="flex items-center gap-6 pt-2">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input type="checkbox" checked={!!magForm.is_published} onChange={e => setMagForm(f => ({ ...f, is_published: e.target.checked }))} className="w-4 h-4 accent-[var(--color-leo-maroon)] cursor-pointer" id="mag-published" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Published</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input type="checkbox" checked={!!magForm.is_downloadable} onChange={e => setMagForm(f => ({ ...f, is_downloadable: e.target.checked }))} className="w-4 h-4 accent-[var(--color-leo-maroon)] cursor-pointer" id="mag-downloadable" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Allow Download</span>
+                        </label>
+                      </div>
+                      {/* Actions */}
+                      <div className="flex gap-3 pt-2">
+                        <button type="button" onClick={closeMagModal} className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-sm">Cancel</button>
+                        <button type="submit" disabled={magSubmitting} id="mag-submit-btn" className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--color-leo-maroon)] text-white font-bold text-sm hover:bg-[#600000] disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
+                          {magSubmitting ? <><Loader2 size={16} className="animate-spin" />Saving…</> : <><Save size={16} />{editingMag ? 'Save Changes' : 'Create Magazine'}</>}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* ──── CONTENT TAB ──── */}
             {activeTab === 'content' && (
               <div>
@@ -1472,6 +1894,106 @@ const AdminDashboard = () => {
                 className="px-6 py-2.5 rounded-xl bg-[var(--color-leo-maroon)] text-white text-sm font-bold hover:bg-red-900 transition-all shadow-md active:scale-95"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──── CLOUDINARY STORAGE AUDIT MODAL ──── */}
+      {auditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setAuditModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}
+            style={{ animation: 'dialogPop 0.2s ease-out' }}>
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <Shield size={18} className="text-[var(--color-leo-gold)]" /> Cloudinary Storage Audit
+              </h3>
+              <button onClick={() => setAuditModalOpen(false)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-400 cursor-pointer"><X size={20} /></button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {auditLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <Loader2 size={36} className="animate-spin text-[var(--color-leo-maroon)]" />
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 animate-pulse">
+                    Scanning Cloudinary files against Supabase database...
+                  </p>
+                </div>
+              ) : auditResults ? (
+                <div className="space-y-6">
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Cloudinary Files</p>
+                      <p className="text-xl font-bold text-gray-800 dark:text-white">{auditResults.total_in_cloudinary}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-405 mb-1">DB References</p>
+                      <p className="text-xl font-bold text-gray-800 dark:text-white">{auditResults.total_in_db}</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-700/40 border border-gray-100 dark:border-slate-700 text-center">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Orphaned Files</p>
+                      <p className={`text-xl font-bold ${auditResults.orphaned_public_ids.length > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                        {auditResults.orphaned_public_ids.length}
+                      </p>
+                    </div>
+                  </div>
+
+                  {auditResults.orphaned_public_ids.length === 0 ? (
+                    <div className="p-8 text-center bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/20 space-y-2">
+                      <CheckCircle size={32} className="text-emerald-500 mx-auto" />
+                      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-400">Storage is Clean!</p>
+                      <p className="text-xs text-emerald-600/80 dark:text-emerald-500/60">No orphaned resources detected in Cloudinary.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-amber-50 text-amber-800 dark:bg-amber-900/10 dark:text-amber-400 rounded-xl border border-amber-200 dark:border-amber-900/30 flex gap-3 text-xs leading-relaxed">
+                        <AlertTriangle size={20} className="shrink-0 text-amber-500" />
+                        <div>
+                          <p className="font-bold">Orphaned files detected</p>
+                          <p className="opacity-90 mt-0.5">
+                            These resources exist in your Cloudinary account but are not referenced in the website gallery or awards lists. They may be left over from deleted records.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Orphaned public_ids</p>
+                        <div className="max-h-40 overflow-y-auto border border-gray-100 dark:border-slate-700 rounded-xl p-3 bg-gray-50 dark:bg-slate-900 font-mono text-[11px] text-gray-600 dark:text-gray-400 divide-y divide-gray-100 dark:divide-slate-800">
+                          {auditResults.orphaned_public_ids.map((id) => (
+                            <div key={id} className="py-1.5 truncate" title={id}>
+                              {id}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            
+            <div className="p-6 border-t border-gray-100 dark:border-slate-700 flex justify-end gap-3 shrink-0">
+              {auditResults && auditResults.orphaned_public_ids.length > 0 && (
+                <button 
+                  onClick={handleDeleteAllOrphans}
+                  disabled={deletingOrphans || auditLoading}
+                  className="px-4 py-2.5 rounded-xl text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-md animate-none"
+                >
+                  {deletingOrphans ? (
+                    <><Loader2 size={16} className="animate-spin" /> Deleting...</>
+                  ) : (
+                    <><Trash2 size={16} /> Delete All Orphans</>
+                  )}
+                </button>
+              )}
+              <button 
+                onClick={() => setAuditModalOpen(false)} 
+                disabled={deletingOrphans || auditLoading}
+                className="px-6 py-2.5 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-200 dark:hover:bg-slate-600 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                Close
               </button>
             </div>
           </div>

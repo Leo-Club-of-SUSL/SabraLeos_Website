@@ -5,6 +5,13 @@ import React, { useState } from 'react';
 import { messagesAPI } from '../lib/supabaseService';
 import { useToast } from './Toast';
 
+// Field length constraints (must match DB CHECK constraints / server-side rules)
+const FIELD_LIMITS = {
+  name: 100,
+  email: 254, // RFC 5321 max
+  message: 2000,
+} as const;
+
 const Contact = () => {
   const { siteContent } = useData();
   const { showToast } = useToast();
@@ -25,11 +32,29 @@ const Contact = () => {
     e.preventDefault();
     if (status === 'submitting') return;
 
+    // ── Client-side validation (mirrors server-side rules) ──
+    const name = formData.name.trim();
+    const email = formData.email.trim();
+    const message = formData.message.trim();
+
+    if (!name || name.length > FIELD_LIMITS.name) {
+      setErrorMessage(`Name must be between 1 and ${FIELD_LIMITS.name} characters.`);
+      return;
+    }
+    if (!email || email.length > FIELD_LIMITS.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+    if (!message || message.length < 10 || message.length > FIELD_LIMITS.message) {
+      setErrorMessage(`Message must be between 10 and ${FIELD_LIMITS.message} characters.`);
+      return;
+    }
+
     setStatus('submitting');
     setErrorMessage('');
 
     try {
-      await messagesAPI.create(formData);
+      await messagesAPI.create({ name, email, message });
       setStatus('success');
       showToast('Message sent successfully! We\'ll get back to you soon.', 'success');
       setFormData({ name: '', email: '', message: '' });
@@ -37,11 +62,12 @@ const Contact = () => {
       // Reset success message after 10 seconds
       setTimeout(() => setStatus('idle'), 10000);
     } catch (error: any) {
+      // Log full error internally, show only a generic message to users
       console.error('Contact submission error:', error);
       setStatus('error');
-      const errorMsg = error.message || 'Failed to send message. Please try again later.';
-      setErrorMessage(errorMsg);
-      showToast(errorMsg, 'error');
+      const userMessage = 'Failed to send message. Please try again later.';
+      setErrorMessage(userMessage);
+      showToast(userMessage, 'error');
     }
   };
 
@@ -143,6 +169,7 @@ const Contact = () => {
                       type="text"
                       name="name"
                       required
+                      maxLength={FIELD_LIMITS.name}
                       value={formData.name}
                       onChange={handleChange}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
@@ -157,6 +184,7 @@ const Contact = () => {
                       type="email"
                       name="email"
                       required
+                      maxLength={FIELD_LIMITS.email}
                       value={formData.email}
                       onChange={handleChange}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
@@ -171,11 +199,15 @@ const Contact = () => {
                       name="message"
                       required
                       rows={4}
+                      maxLength={FIELD_LIMITS.message}
                       value={formData.message}
                       onChange={handleChange}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:border-[var(--color-leo-maroon)] focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900 outline-none transition-all placeholder:text-gray-400"
                       placeholder="How can we help you?"
                     ></textarea>
+                    <p className="text-xs text-gray-400 text-right mt-1">
+                      {formData.message.length}/{FIELD_LIMITS.message}
+                    </p>
                   </div>
 
                   {status === 'error' && (

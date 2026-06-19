@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Menu, X, Sun, Moon, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NAV_LINKS } from '../data';
@@ -125,6 +125,22 @@ const Navbar = () => {
             </li>
           ))}
 
+          {/* E-Magazine page link */}
+          <li>
+            <Link
+              to="/e-magazine"
+              className={`group relative font-semibold text-sm transition-colors py-2 no-underline ${
+                location.pathname === '/e-magazine'
+                  ? (isSolid ? 'text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)]' : 'text-[var(--color-leo-gold)]')
+                  : isSolid ? 'text-gray-600 dark:text-gray-300 hover:text-[var(--color-leo-maroon)]' : 'text-white/90 hover:text-white'
+              }`}
+              aria-label="E-Magazine"
+            >
+              E-Magazine
+              <span className={`absolute -bottom-1 left-0 h-0.5 bg-[var(--color-leo-gold)] transition-all duration-300 ${location.pathname === '/e-magazine' ? 'w-full' : 'w-0 group-hover:w-full'}`}></span>
+            </Link>
+          </li>
+
           <li className={`w-px h-6 mx-4 ${isSolid ? 'bg-gray-300 dark:bg-gray-700' : 'bg-white/30'}`} aria-hidden="true"></li>
 
           <li>
@@ -184,6 +200,21 @@ const Navbar = () => {
                   </button>
                 </li>
               ))}
+              {/* E-Magazine page link */}
+              <li className="w-full">
+                <Link
+                  to="/e-magazine"
+                  onClick={() => setIsOpen(false)}
+                  className={`w-full text-left px-8 py-4 font-bold text-lg cursor-pointer transition-all flex items-center justify-between no-underline ${
+                    location.pathname === '/e-magazine'
+                      ? 'bg-[var(--color-leo-maroon)] text-white'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>E-Magazine</span>
+                  {location.pathname === '/e-magazine' && <ArrowRight size={20} />}
+                </Link>
+              </li>
             </ul>
           </motion.div>
         )}

@@ -68,7 +68,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Fetch data from Supabase on mount
+  // Fetch public data from Supabase on mount
+  // NOTE: content logs are admin-only and fetched on demand, not on public page load
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -80,7 +81,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         galleryAPI.getAll(),
         awardsAPI.getAll(),
         siteContentAPI.getAll(),
-        contentLogsAPI.getAll(),
       ]);
 
       // Assign results or keep defaults if they failed
@@ -101,9 +101,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       } else {
         console.error('Error fetching site content:', results[4].reason);
       }
-
-      if (results[5].status === 'fulfilled') setLogs(results[5].value);
-      else console.error('Error fetching logs:', results[5].reason);
 
       // If all critical data failed to load, set a global error
       const allFailed = results.every(r => r.status === 'rejected');

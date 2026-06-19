@@ -1,0 +1,1 @@
+{"root":["./api/analytics.ts","./api/keep-alive.ts","./api/admin/cloudinary-audit.ts","./api/admin/cloudinary-delete.ts","./api/admin/magazines/[id].ts","./api/admin/magazines/index.ts","./api/admin/magazines/upload.ts","./api/magazines/index.ts","./api/magazines/[id]/pdf.ts","./api/magazines/[id]/view.ts"],"version":"5.9.3"}

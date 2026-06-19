@@ -85,7 +85,7 @@ export const securityService = {
             // Count failed attempts in the lockout window
             const { data, error } = await supabase
                 .from('security_logs')
-                .select('*')
+                .select('id, created_at')
                 .eq('email', email)
                 .eq('event_type', 'login_failed')
                 .gte('created_at', windowStart)
