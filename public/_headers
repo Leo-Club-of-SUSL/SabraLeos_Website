@@ -1,22 +1,12 @@
+# Security Headers for sabraleos.org
+# Applied to all routes via Cloudflare Pages _headers file
+
 /*
-  # Security Headers for sabraleos.org
-  # Applied to all routes via Cloudflare Pages _headers file
-  #
-  # Content-Security-Policy:
-  #   - script-src: 'unsafe-inline' needed for React hydration + GA4 gtag inline
-  #   - img-src: * allows Unsplash placeholders in dev; tighten in future
-  #   - connect-src: includes GA4, Supabase, Cloudinary, Google OAuth
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co https://res.cloudinary.com https://images.unsplash.com https://www.google-analytics.com https://*.googleusercontent.com; connect-src 'self' https://*.supabase.co https://api.cloudinary.com https://www.google-analytics.com https://analyticsdata.googleapis.com https://oauth2.googleapis.com https://static.cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
-  # Prevent clickjacking
   X-Frame-Options: DENY
-  # Prevent MIME sniffing attacks
   X-Content-Type-Options: nosniff
-  # Referrer policy — don't leak full URL to cross-origin sites
   Referrer-Policy: strict-origin-when-cross-origin
-  # Disable unnecessary browser APIs
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()
-  # Strict HTTPS for 1 year — includes subdomains — register for HSTS preload
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  # Prevent cross-origin info leaks
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cross-Origin-Resource-Policy: same-site

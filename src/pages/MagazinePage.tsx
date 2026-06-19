@@ -1,6 +1,7 @@
 // src/pages/MagazinePage.tsx
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -103,10 +104,10 @@ const MagazinePage = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <Helmet>
-        <title>E-Magazine | Leo Club of Sabaragamuwa University | SabraLeos</title>
+        <title>SabraLeos E-Magazine Archive | Leo Club of Sabragamuwa University</title>
         <meta
           name="description"
-          content="Read the official E-Magazines of the Leo Club of Sabaragamuwa University of Sri Lanka (SabraLeos). Browse all volumes and issues online."
+          content="Read the official E-Magazines of the Leo Club of Sabragamuwa University of Sri Lanka (SabraLeos). Browse all volumes and issues online."
         />
         <meta
           name="keywords"
@@ -115,18 +116,18 @@ const MagazinePage = () => {
         <link rel="canonical" href={`${SITE_URL}/e-magazine`} />
         <meta property="og:type" content="website" />
         <meta property="og:url" content={`${SITE_URL}/e-magazine`} />
-        <meta property="og:title" content="E-Magazine | Leo Club of SUSL | SabraLeos" />
+        <meta property="og:title" content="SabraLeos E-Magazine Archive | Leo Club of Sabragamuwa University" />
         <meta
           property="og:description"
-          content="Browse and read the official SabraLeos E-Magazines online."
+          content="Read the official E-Magazines of the Leo Club of Sabragamuwa University of Sri Lanka (SabraLeos). Browse all volumes and issues online."
         />
         <meta property="og:image" content={`${SITE_URL}/Images/Round_logo.png`} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content={`${SITE_URL}/e-magazine`} />
-        <meta name="twitter:title" content="E-Magazine | Leo Club of SUSL | SabraLeos" />
+        <meta name="twitter:title" content="SabraLeos E-Magazine Archive | Leo Club of Sabragamuwa University" />
         <meta
           name="twitter:description"
-          content="Browse and read the official SabraLeos E-Magazines online."
+          content="Read the official E-Magazines of the Leo Club of Sabragamuwa University of Sri Lanka (SabraLeos). Browse all volumes and issues online."
         />
         <meta name="twitter:image" content={`${SITE_URL}/Images/Round_logo.png`} />
       </Helmet>
@@ -134,7 +135,26 @@ const MagazinePage = () => {
       <Navbar />
 
       <main className="flex-grow pt-20" id="magazine-main">
-        <section id="e-magazine" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
+        {/* Breadcrumbs */}
+        <div className="bg-gray-50 dark:bg-slate-950/20 pt-6 transition-colors">
+          <div className="container mx-auto px-6">
+            <nav className="flex text-xs md:text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider" aria-label="Breadcrumb">
+              <ol className="inline-flex items-center space-x-2 list-none p-0 m-0">
+                <li className="inline-flex items-center">
+                  <Link to="/" className="hover:text-[var(--color-leo-maroon)] dark:hover:text-[var(--color-leo-gold)] transition-colors no-underline">
+                    Home
+                  </Link>
+                </li>
+                <li aria-hidden="true" className="text-gray-400 font-light">/</li>
+                <li className="text-gray-800 dark:text-slate-200">
+                  E-Magazine
+                </li>
+              </ol>
+            </nav>
+          </div>
+        </div>
+
+        <section id="e-magazine" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300 pt-10">
           <div className="container mx-auto px-6">
 
             {/* Section heading — matches Gallery.tsx pattern exactly */}
@@ -145,11 +165,11 @@ const MagazinePage = () => {
               className="text-center mb-12"
             >
               <h1 className="text-4xl font-bold text-[var(--color-leo-maroon)] dark:text-white mb-4">
-                E-Magazine
+                SabraLeos E-Magazine Archive
               </h1>
               <div className="w-20 h-1 bg-[var(--color-leo-gold)] mx-auto rounded-full mb-6" />
               <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-                Browse and read the official publications of the Leo Club of Sabaragamuwa University of Sri Lanka.
+                Browse and read the official publications of the Leo Club of Sabragamuwa University of Sri Lanka.
               </p>
             </motion.div>
 
@@ -282,6 +302,73 @@ const MagazinePage = () => {
             )}
           </div>
         </section>
+
+        {/* Descriptive content section for SEO and heading hierarchy */}
+        <section className="py-16 bg-white dark:bg-slate-900 transition-colors border-t border-gray-100 dark:border-slate-800 mt-16">
+          <div className="container mx-auto px-6 max-w-4xl">
+            <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-6 text-center">
+              About SabraLeos Publications & E-Magazines
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-12 text-center text-lg font-light">
+              The E-Magazine portal serves as the official digital archive of publications by the Leo Club of Sabragamuwa University of Sri Lanka. 
+              Our digital magazines showcase quarterly reports, inspiring service logs, creative contributions, and key insights 
+              from our club operations and youth leadership projects.
+            </p>
+
+            <div className="space-y-12">
+              <div>
+                <h2 className="text-2xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] mb-4">
+                  Why Read Our E-Magazines?
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Our issues offer readers a detailed look at how we carry out youth development, community service, and environmental restoration programs. 
+                  Every volume acts as a historical record, featuring articles written by our talented members, poetry, and features on 
+                  our exemplary Leos who have shown exceptional dedication to volunteerism.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] mb-4">
+                  Open Access & Digital Archive
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  We believe in transparency and knowledge sharing. All our publications are open access, meaning anyone in the global community 
+                  can read and download them. This helps keep our sponsors, partners, and the general public updated on the 
+                  direct impact of their support and contributions.
+                </p>
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-bold text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] mb-4">
+                  Contribute to Our Next Issue
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  We are always looking for creative writers, photographers, and editors from the Sabragamuwa University community. 
+                  If you are interested in sharing an article, a piece of poetry, or a service story in our upcoming edition, 
+                  please reach out to our editorial board through the contact form on our homepage.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Internal Navigation for better crawlability */}
+        <div className="py-12 bg-gray-50 dark:bg-slate-950/50 border-t border-gray-100 dark:border-slate-800 transition-colors">
+          <div className="container mx-auto px-6 text-center">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-4 uppercase tracking-wider">Explore More of SabraLeos</h3>
+            <div className="flex flex-wrap justify-center gap-6">
+              <Link to="/" className="text-gray-600 dark:text-gray-400 hover:text-[var(--color-leo-maroon)] dark:hover:text-[var(--color-leo-gold)] font-semibold transition-colors no-underline">
+                Home
+              </Link>
+              <Link to="/gallery" className="text-gray-600 dark:text-gray-400 hover:text-[var(--color-leo-maroon)] dark:hover:text-[var(--color-leo-gold)] font-semibold transition-colors no-underline">
+                Photo Gallery
+              </Link>
+              <a href="/#contact" className="text-gray-600 dark:text-gray-400 hover:text-[var(--color-leo-maroon)] dark:hover:text-[var(--color-leo-gold)] font-semibold transition-colors no-underline">
+                Contact Us
+              </a>
+            </div>
+          </div>
+        </div>
       </main>
 
       <Footer />

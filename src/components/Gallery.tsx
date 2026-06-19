@@ -10,9 +10,10 @@ interface GalleryProps {
   limit?: number;
   showButton?: boolean;
   enableLightbox?: boolean;
+  titleLevel?: 'h1' | 'h2' | 'none';
 }
 
-const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryProps) => {
+const Gallery = ({ limit, showButton = false, enableLightbox = false, titleLevel = 'h2' }: GalleryProps) => {
   const { gallery, loading } = useData();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -67,18 +68,24 @@ const Gallery = ({ limit, showButton = false, enableLightbox = false }: GalleryP
   return (
     <section id="gallery" className="py-20 bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
       <div className="container mx-auto px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-4xl font-bold text-[var(--color-leo-maroon)] dark:text-white mb-4">Gallery</h2>
-          <div className="w-20 h-1 bg-[var(--color-leo-gold)] mx-auto rounded-full mb-6"></div>
-          <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Capturing moments of service, friendship, and impact.
-          </p>
-        </motion.div>
+        {titleLevel !== 'none' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            {titleLevel === 'h1' ? (
+              <h1 className="text-4xl font-bold text-[var(--color-leo-maroon)] dark:text-white mb-4">Gallery</h1>
+            ) : (
+              <h2 className="text-4xl font-bold text-[var(--color-leo-maroon)] dark:text-white mb-4">Gallery</h2>
+            )}
+            <div className="w-20 h-1 bg-[var(--color-leo-gold)] mx-auto rounded-full mb-6"></div>
+            <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Capturing moments of service, friendship, and impact.
+            </p>
+          </motion.div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
           {displayedGallery.length > 0 ? (

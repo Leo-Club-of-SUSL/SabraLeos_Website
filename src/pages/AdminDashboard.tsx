@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent, ReactNode, FormEvent, ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, 
   Loader2, Settings, Shield, LogOut, AlertTriangle, CheckCircle, 
@@ -856,6 +857,10 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+      <Helmet>
+        <title>Admin Dashboard | SabraLeos</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
