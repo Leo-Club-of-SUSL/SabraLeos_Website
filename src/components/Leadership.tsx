@@ -141,7 +141,7 @@ const Leadership = () => {
         {leadership.chief && leadership.chief.length > 0 && (
           <div className="mb-20">
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Chief Directors</h3>
-            <div className="flex flex-wrap justify-center gap-8 lg:gap-12 max-w-4xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-6 sm:gap-8 lg:gap-10 xl:gap-12 max-w-7xl mx-auto">
               {[...(leadership.chief || [])].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((member, index) => (
                 <motion.div
                   key={index}
@@ -149,7 +149,7 @@ const Leadership = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.1 }}
-                  className="text-center group w-full sm:w-60"
+                  className="text-center group w-full sm:w-56 md:w-60"
                 >
                   <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-lg group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
                     <img
@@ -172,7 +172,7 @@ const Leadership = () => {
         {leadership.board.length > 0 && (
           <div>
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-10 text-center border-b pb-4 max-w-xs mx-auto border-gray-200 dark:border-gray-700">Board of Directors</h3>
-            <div className="flex flex-wrap justify-center gap-8 lg:gap-10 max-w-3xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-6 sm:gap-8 lg:gap-8 xl:gap-10 max-w-7xl mx-auto">
               {[...leadership.board].sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((member, index) => (
                 <motion.div
                   key={index}
@@ -180,7 +180,7 @@ const Leadership = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.1 }}
-                  className="text-center group w-full sm:w-48"
+                  className="text-center group w-full sm:w-44 md:w-48"
                 >
                   <div className="relative w-40 h-40 mx-auto mb-6 rounded-full overflow-hidden border-4 border-gray-100 dark:border-slate-800 shadow-md group-hover:border-[var(--color-leo-maroon)] dark:group-hover:border-[var(--color-leo-gold)] transition-colors duration-300">
                     <img
