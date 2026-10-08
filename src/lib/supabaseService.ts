@@ -16,18 +16,22 @@ const transformProjectFromDB = (dbProject: ProjectDB): Project => ({
     image: dbProject.image_url,
     date: dbProject.project_date || undefined,
     registrationLink: dbProject.recruitment_link || undefined,
+    status: dbProject.status || undefined,
+    isVisible: dbProject.is_visible !== undefined ? Boolean(dbProject.is_visible) : true,
 });
 
 /**
  * Transform frontend project to database format
  */
-const transformProjectToDB = (project: Omit<Project, 'id'>): Omit<ProjectDB, 'id' | 'created_at'> => ({
-    title: project.title,
-    category: project.category,
-    description: project.description,
-    image_url: project.image,
+const transformProjectToDB = (project: Omit<Project, 'id'> | Partial<Project>): Omit<ProjectDB, 'id' | 'created_at'> => ({
+    title: project.title || '',
+    category: project.category || 'Upcoming',
+    description: project.description || '',
+    image_url: project.image || '',
     project_date: project.date || null,
     recruitment_link: project.registrationLink || null,
+    is_visible: project.isVisible !== undefined ? project.isVisible : true,
+    status: project.status || null,
 });
 
 /**
@@ -115,6 +119,41 @@ const transformAwardToDB = (award: Omit<Award, 'id'>): Omit<AwardDB, 'id' | 'cre
 // Projects API
 // ============================================
 
+/**
+ * Fallback helper to persist hidden project IDs in site_content if is_visible DB column is not yet present
+ */
+const recordHiddenProjectFallback = async (id: number, isHidden: boolean) => {
+    try {
+        const { data } = await supabase
+            .from('site_content')
+            .select('value')
+            .eq('key', 'hidden_project_ids')
+            .maybeSingle();
+
+        let ids: number[] = [];
+        if (data?.value) {
+            try { ids = JSON.parse(data.value); } catch {}
+        }
+
+        if (isHidden) {
+            if (!ids.includes(id)) ids.push(id);
+        } else {
+            ids = ids.filter(x => x !== id);
+        }
+
+        await supabase
+            .from('site_content')
+            .upsert({
+                key: 'hidden_project_ids',
+                value: JSON.stringify(ids),
+                section: 'projects',
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+    } catch (e) {
+        console.warn('Fallback sync of hidden_project_ids failed:', e);
+    }
+};
+
 export const projectsAPI = {
     /**
      * Fetch all projects from Supabase
@@ -130,7 +169,32 @@ export const projectsAPI = {
             throw error;
         }
 
-        return (data || []).map(transformProjectFromDB);
+        const rawList = data || [];
+        const hasDbColumn = rawList.length > 0 && ('is_visible' in rawList[0]);
+        let hiddenIds: number[] = [];
+
+        if (!hasDbColumn) {
+            try {
+                const { data: scData } = await supabase
+                    .from('site_content')
+                    .select('value')
+                    .eq('key', 'hidden_project_ids')
+                    .maybeSingle();
+                if (scData?.value) {
+                    hiddenIds = JSON.parse(scData.value);
+                }
+            } catch (e) {
+                console.warn('Fallback read of hidden_project_ids failed:', e);
+            }
+        }
+
+        return rawList.map(row => {
+            const p = transformProjectFromDB(row);
+            if (!hasDbColumn) {
+                p.isVisible = !hiddenIds.includes(row.id);
+            }
+            return p;
+        });
     },
 
     /**
@@ -139,18 +203,38 @@ export const projectsAPI = {
     async create(project: Omit<Project, 'id'>): Promise<Project> {
         const dbProject = transformProjectToDB(project);
 
-        const { data, error } = await supabase
+        let data: any = null;
+        let { data: insertedData, error } = await supabase
             .from('projects')
             .insert([dbProject])
             .select()
             .single();
 
-        if (error) {
+        if (error && (error.code === '42703' || error.message?.includes('is_visible'))) {
+            console.warn('projects.is_visible column not found. Retrying without column...');
+            const { is_visible, ...fallbackPayload } = dbProject as any;
+            const res = await supabase
+                .from('projects')
+                .insert([fallbackPayload])
+                .select()
+                .single();
+            if (res.error) throw res.error;
+            data = res.data;
+            if (project.isVisible === false && data?.id) {
+                await recordHiddenProjectFallback(data.id, true);
+            }
+        } else if (error) {
             console.error('Error creating project:', error);
             throw error;
+        } else {
+            data = insertedData;
         }
 
-        return transformProjectFromDB(data);
+        const created = transformProjectFromDB(data);
+        if (project.isVisible !== undefined) {
+            created.isVisible = project.isVisible;
+        }
+        return created;
     },
 
     /**
@@ -159,19 +243,40 @@ export const projectsAPI = {
     async update(id: number, project: Partial<Project>): Promise<Project> {
         const dbProject = transformProjectToDB(project as Omit<Project, 'id'>);
 
-        const { data, error } = await supabase
+        let data: any = null;
+        let { data: updatedData, error } = await supabase
             .from('projects')
             .update(dbProject)
             .eq('id', id)
             .select()
             .single();
 
-        if (error) {
+        if (error && (error.code === '42703' || error.message?.includes('is_visible'))) {
+            console.warn('projects.is_visible column not found. Retrying without column...');
+            const { is_visible, ...fallbackPayload } = dbProject as any;
+            const res = await supabase
+                .from('projects')
+                .update(fallbackPayload)
+                .eq('id', id)
+                .select()
+                .single();
+            if (res.error) throw res.error;
+            data = res.data;
+            if (project.isVisible !== undefined) {
+                await recordHiddenProjectFallback(id, !project.isVisible);
+            }
+        } else if (error) {
             console.error('Error updating project:', error);
             throw error;
+        } else {
+            data = updatedData;
         }
 
-        return transformProjectFromDB(data);
+        const updated = transformProjectFromDB(data);
+        if (project.isVisible !== undefined) {
+            updated.isVisible = project.isVisible;
+        }
+        return updated;
     },
 
     /**
@@ -187,6 +292,8 @@ export const projectsAPI = {
             console.error('Error deleting project:', error);
             throw error;
         }
+
+        await recordHiddenProjectFallback(id, false);
     },
 };
 
@@ -277,18 +384,19 @@ export const leadershipAPI = {
         }
     },
 
-    /**
-     * Bulk update leadership (e.g., for reordering sort priorities)
-     */
     async bulkUpdate(updates: { id: number; sort_order?: number }[]): Promise<void> {
         if (updates.length === 0) return;
-        const results = await supabase
-            .from('leadership')
-            .upsert(updates.map(({ id, ...rest }) => ({ id, ...rest })), { onConflict: 'id' });
-
-        if (results.error) {
-            console.error('Error bulk updating leadership:', results.error);
-            throw results.error;
+        const promises = updates.map(u => 
+            supabase
+                .from('leadership')
+                .update({ sort_order: u.sort_order })
+                .eq('id', u.id)
+        );
+        const results = await Promise.all(promises);
+        const err = results.find(r => r.error)?.error;
+        if (err) {
+            console.error('Error bulk updating leadership:', err);
+            throw err;
         }
     }
 };
@@ -451,18 +559,22 @@ export const galleryAPI = {
         }
     },
 
-    /**
-     * Bulk update multiple gallery images (useful for reordering)
-     */
     async bulkUpdate(updates: { id: number; show_on_home?: boolean; sort_order?: number }[]): Promise<void> {
         if (updates.length === 0) return;
-        const results = await supabase
-            .from('gallery')
-            .upsert(updates.map(({ id, ...rest }) => ({ id, ...rest })), { onConflict: 'id' });
-
-        if (results.error) {
-            console.error('Error bulk updating gallery:', results.error);
-            throw results.error;
+        const promises = updates.map(u => {
+            const payload: any = {};
+            if (u.sort_order !== undefined) payload.sort_order = u.sort_order;
+            if (u.show_on_home !== undefined) payload.show_on_home = u.show_on_home;
+            return supabase
+                .from('gallery')
+                .update(payload)
+                .eq('id', u.id);
+        });
+        const results = await Promise.all(promises);
+        const err = results.find(r => r.error)?.error;
+        if (err) {
+            console.error('Error bulk updating gallery:', err);
+            throw err;
         }
     }
 };
@@ -553,18 +665,19 @@ export const awardsAPI = {
         }
     },
 
-    /**
-     * Bulk update multiple awards (useful for reordering)
-     */
     async bulkUpdate(updates: { id: number; sort_order?: number }[]): Promise<void> {
         if (updates.length === 0) return;
-        const results = await supabase
-            .from('awards')
-            .upsert(updates.map(({ id, ...rest }) => ({ id, ...rest })), { onConflict: 'id' });
-
-        if (results.error) {
-            console.error('Error bulk updating awards:', results.error);
-            throw results.error;
+        const promises = updates.map(u => 
+            supabase
+                .from('awards')
+                .update({ sort_order: u.sort_order })
+                .eq('id', u.id)
+        );
+        const results = await Promise.all(promises);
+        const err = results.find(r => r.error)?.error;
+        if (err) {
+            console.error('Error bulk updating awards:', err);
+            throw err;
         }
     }
 };
@@ -665,12 +778,17 @@ export const contentLogsAPI = {
     /**
      * Fetch all content logs (for admin dashboard)
      */
-    async getAll(limit = 50): Promise<ContentLog[]> {
-        const { data, error } = await supabase
+    async getAll(limit?: number): Promise<ContentLog[]> {
+        let query = supabase
             .from('content_logs')
             .select('id, action, section, description, performed_by, created_at')
-            .order('created_at', { ascending: false })
-            .limit(limit);
+            .order('created_at', { ascending: false });
+
+        if (limit && limit > 0) {
+            query = query.limit(limit);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error('Error fetching content logs:', error);

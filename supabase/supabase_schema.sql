@@ -11,8 +11,11 @@ CREATE TABLE IF NOT EXISTS projects (
   image_url TEXT NOT NULL,
   project_date DATE,
   recruitment_link TEXT,
+  is_visible BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- Add is_visible column if table already exists
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true;
 -- Create index for faster category filtering
 CREATE INDEX IF NOT EXISTS idx_projects_category ON projects(category);
 -- ============================================

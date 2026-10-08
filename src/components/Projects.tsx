@@ -24,9 +24,10 @@ const Projects = () => {
     };
   }, [selectedProject]);
 
+  const visibleProjects = projects.filter(p => p.isVisible !== false);
   const filteredProjects = filter === 'All'
-    ? projects
-    : projects.filter(p => p.category === filter);
+    ? visibleProjects
+    : visibleProjects.filter(p => p.category === filter);
 
   const checkScroll = () => {
     if (scrollRef.current) {
