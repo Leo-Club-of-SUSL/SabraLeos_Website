@@ -7,6 +7,8 @@ export interface ProjectDB {
     image_url: string;
     project_date: string | null;
     recruitment_link: string | null;
+    is_visible?: boolean;
+    status?: string | null;
     created_at: string;
 }
 
@@ -78,6 +80,7 @@ export interface Project {
     date?: string;
     status?: string;
     registrationLink?: string;
+    isVisible?: boolean;
 }
 
 export interface LeadershipMember {

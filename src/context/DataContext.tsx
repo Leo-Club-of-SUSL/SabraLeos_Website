@@ -33,7 +33,7 @@ interface DataContextType {
   bulkUpdateSiteContent: (entries: { key: string; value: string }[], section?: string) => Promise<void>;
   logs: ContentLog[];
   refreshData: () => Promise<void>;
-  fetchLogs: () => Promise<void>;
+  fetchLogs: (limit?: number) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -451,9 +451,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     await fetchData();
   };
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (limit?: number) => {
     try {
-      const newLogs = await contentLogsAPI.getAll();
+      const newLogs = await contentLogsAPI.getAll(limit);
       setLogs(newLogs);
     } catch (err) {
       console.error('Error fetching logs:', err);

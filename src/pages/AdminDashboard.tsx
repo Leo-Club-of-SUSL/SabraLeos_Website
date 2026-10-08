@@ -6,7 +6,7 @@ import {
   ArrowLeft, Plus, Edit, Trash2, Users, FolderOpen, Image, X, Save, 
   Loader2, Settings, Shield, LogOut, AlertTriangle, CheckCircle, 
   XCircle, Lock, RefreshCw, Mail, Clock, ImagePlus, Trophy, 
-  BarChart3, ArrowUp, ArrowDown, BookOpen, Eye, EyeOff
+  BarChart3, ArrowUp, ArrowDown, BookOpen, Eye, EyeOff, Send, Key, ExternalLink
 } from 'lucide-react';
 
 import { messagesAPI } from '../lib/supabaseService';
@@ -119,11 +119,11 @@ const AdminDashboard = () => {
 
 
   // Form States
-  const [projectForm, setProjectForm] = useState<Partial<Project>>({ category: 'Upcoming', status: 'Active' });
+  const [projectForm, setProjectForm] = useState<Partial<Project>>({ category: 'Upcoming', status: 'Active', isVisible: true });
   const [memberForm, setMemberForm] = useState<Partial<LeadershipMember>>({ type: 'executive', rowNumber: 1 });
   const [imageForm, setImageForm] = useState<Partial<GalleryImage>>({ showOnHome: false, sortOrder: 0 });
   const [awardForm, setAwardForm] = useState<Partial<Award>>({});
-
+  const [projectFilter, setProjectFilter] = useState<'all' | 'visible' | 'hidden'>('all');
 
   // Content state
   const [contentForm, setContentForm] = useState<Record<string, string>>({});
@@ -135,8 +135,12 @@ const AdminDashboard = () => {
   // Security state
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>([]);
   const [securityLoading, setSecurityLoading] = useState(false);
+  const [showAllSecurityLogs, setShowAllSecurityLogs] = useState(false);
   const [alertEmail, setAlertEmail] = useState('');
   const [alertEmailSaving, setAlertEmailSaving] = useState(false);
+  const [resendApiKey, setResendApiKey] = useState('');
+  const [showResendKey, setShowResendKey] = useState(false);
+  const [testingAlertEmail, setTestingAlertEmail] = useState(false);
 
   // Messages state
   const [messages, setMessages] = useState<any[]>([]);
@@ -144,6 +148,7 @@ const AdminDashboard = () => {
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [showAllLogs, setShowAllLogs] = useState(false);
 
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -179,7 +184,7 @@ const AdminDashboard = () => {
 
   // ---- Handlers ----
   const resetForms = () => {
-    setProjectForm({ category: 'Upcoming', status: 'Active' });
+    setProjectForm({ category: 'Upcoming', status: 'Active', isVisible: true });
     setMemberForm({ type: 'executive', rowNumber: 1 });
     setImageForm({ showOnHome: false, sortOrder: 0 });
     setAwardForm({});
@@ -203,7 +208,7 @@ const AdminDashboard = () => {
     setSelectedFile(null);
     setSelectedFiles([]);
     setIsBulkUpload(false);
-    if (activeTab === 'projects') setProjectForm(item);
+    if (activeTab === 'projects') setProjectForm({ ...item, isVisible: item.isVisible !== false });
     if (activeTab === 'leadership') setMemberForm(item);
     if (activeTab === 'gallery') setImageForm(item);
     if (activeTab === 'awards') setAwardForm(item);
@@ -463,7 +468,7 @@ const AdminDashboard = () => {
       }
 
       if (activeTab === 'projects') {
-        const finalForm = { ...projectForm, image: currentImageUrl };
+        const finalForm = { ...projectForm, image: currentImageUrl, isVisible: projectForm.isVisible !== false };
         editingItem ? await updateProject(finalForm as Project) : await addProject(finalForm as Omit<Project, 'id'>);
       } else if (activeTab === 'leadership') {
         const finalForm = { ...memberForm, image: currentImageUrl };
@@ -609,10 +614,21 @@ const AdminDashboard = () => {
   };
 
 
+  const handleToggleProjectVisibility = async (project: Project) => {
+    try {
+      const nextVisible = project.isVisible === false;
+      await updateProject({ ...project, isVisible: nextVisible });
+      showToast(nextVisible ? `"${project.title}" is now visible on website` : `"${project.title}" is now hidden from website`, 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update project visibility', 'error');
+    }
+  };
+
   // Security handlers
-  const fetchSecurityLogs = async () => {
+  const fetchSecurityLogs = async (showAll = showAllSecurityLogs) => {
     setSecurityLoading(true);
-    try { setSecurityLogs(await securityService.getRecentLogs(50)); }
+    try { setSecurityLogs(await securityService.getRecentLogs(showAll ? undefined : 50)); }
     catch { showToast('Failed to load security logs', 'error'); }
     finally { setSecurityLoading(false); }
   };
@@ -620,10 +636,41 @@ const AdminDashboard = () => {
   const handleAlertEmailSave = async () => {
     setAlertEmailSaving(true);
     try {
-      await bulkUpdateSiteContent([{ key: 'alert_email', value: alertEmail }]);
-      showToast('Alert email updated!', 'success');
-    } catch { showToast('Failed to save alert email', 'error'); }
-    finally { setAlertEmailSaving(false); }
+      await bulkUpdateSiteContent([
+        { key: 'alert_email', value: alertEmail.trim() },
+        { key: 'resend_api_key', value: resendApiKey.trim() }
+      ]);
+      showToast('Security notification settings updated!', 'success');
+    } catch { 
+      showToast('Failed to save security settings', 'error'); 
+    } finally { 
+      setAlertEmailSaving(false); 
+    }
+  };
+
+  const handleSendTestAlert = async () => {
+    if (!alertEmail.trim()) {
+      showToast('Please specify an alert email address first.', 'warning');
+      return;
+    }
+    setTestingAlertEmail(true);
+    try {
+      const result = await securityService.triggerSecurityAlert(
+        'test_alert',
+        session?.user?.email || 'admin@sabraleos.org',
+        'Manual security alert test initiated from Admin Dashboard'
+      );
+      if (result.success) {
+        showToast(result.message || 'Test alert email sent successfully!', 'success');
+        fetchSecurityLogs(showAllSecurityLogs);
+      } else {
+        showToast(result.message || 'Could not send test email. Please check your Resend API key.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Error triggering test alert email.', 'error');
+    } finally {
+      setTestingAlertEmail(false);
+    }
   };
 
   const handleSignOut = async () => { await signOut(); navigate('/admin', { replace: true }); };
@@ -796,17 +843,24 @@ const AdminDashboard = () => {
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     if (tab === 'content') initContentForm(contentSection);
-    if (tab === 'security') { fetchSecurityLogs(); setAlertEmail(siteContent['alert_email'] || ''); }
+    if (tab === 'security') { 
+      fetchSecurityLogs(showAllSecurityLogs); 
+      setAlertEmail(siteContent['alert_email'] || ''); 
+      setResendApiKey(siteContent['resend_api_key'] || '');
+    }
     if (tab === 'messages') fetchMessages();
     if (tab === 'magazines') fetchAdminMagazines(1);
     if (tab === 'logs') {
       setLogsLoading(true);
-      fetchLogs().finally(() => setLogsLoading(false));
+      fetchLogs(showAllLogs ? undefined : 50).finally(() => setLogsLoading(false));
     }
   };
 
   useEffect(() => { 
-    if (activeTab === 'security') setAlertEmail(siteContent['alert_email'] || ''); 
+    if (activeTab === 'security') {
+      setAlertEmail(siteContent['alert_email'] || ''); 
+      setResendApiKey(siteContent['resend_api_key'] || '');
+    }
     if (activeTab === 'messages') fetchMessages();
   }, [siteContent, activeTab]);
 
@@ -985,34 +1039,141 @@ const AdminDashboard = () => {
 
             {/* ──── PROJECTS TAB ──── */}
 
-            {activeTab === 'projects' && (
-              projects.length === 0 ? (
-                <EmptyState icon={FolderOpen} text="No projects yet" sub="Add your first project to get started" />
-              ) : (
-                <div className="grid gap-3">
-                  {projects.map(project => (
-                    <div key={project.id} className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors group">
-                      <img src={project.image} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0 bg-gray-100" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 dark:text-white truncate">{project.title}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${project.category === 'Completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                            project.category === 'Ongoing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                              'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                            }`}>{project.category}</span>
-                          {project.date && <span className="text-xs text-gray-400">{project.date}</span>}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleEditClick(project)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Edit size={16} /></button>
-                         <button onClick={() => handleDeleteClick(project)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={16} /></button>
+            {activeTab === 'projects' && (() => {
+              const visibleCount = projects.filter(p => p.isVisible !== false).length;
+              const hiddenCount = projects.filter(p => p.isVisible === false).length;
+              const displayedProjects = projects.filter(p => {
+                if (projectFilter === 'visible') return p.isVisible !== false;
+                if (projectFilter === 'hidden') return p.isVisible === false;
+                return true;
+              });
 
+              return (
+                <div className="space-y-4">
+                  {/* Filter & Visibility Summary */}
+                  {projects.length > 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Filter:</span>
+                        {(['all', 'visible', 'hidden'] as const).map(tabKey => {
+                          const count = tabKey === 'all' ? projects.length : tabKey === 'visible' ? visibleCount : hiddenCount;
+                          return (
+                            <button
+                              key={tabKey}
+                              type="button"
+                              onClick={() => setProjectFilter(tabKey)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                                projectFilter === tabKey
+                                  ? 'bg-[var(--color-leo-maroon)] text-white shadow-sm'
+                                  : 'bg-gray-100 dark:bg-slate-750 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              {tabKey === 'visible' && <Eye size={12} />}
+                              {tabKey === 'hidden' && <EyeOff size={12} />}
+                              <span className="capitalize">{tabKey}</span>
+                              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                projectFilter === tabKey ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300'
+                              }`}>
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        {visibleCount} of {projects.length} projects visible on website
+                      </p>
                     </div>
-                  ))}
+                  )}
+
+                  {projects.length === 0 ? (
+                    <EmptyState icon={FolderOpen} text="No projects yet" sub="Add your first project to get started" />
+                  ) : displayedProjects.length === 0 ? (
+                    <EmptyState 
+                      icon={FolderOpen} 
+                      text={projectFilter === 'hidden' ? "No hidden projects" : "No visible projects"} 
+                      sub="Switch filter to view other projects" 
+                    />
+                  ) : (
+                    <div className="grid gap-3">
+                      {displayedProjects.map(project => {
+                        const isVisible = project.isVisible !== false;
+                        return (
+                          <div 
+                            key={project.id} 
+                            className={`flex items-center gap-4 p-4 rounded-xl border transition-colors group ${
+                              !isVisible
+                                ? 'border-dashed border-gray-300 dark:border-slate-600 bg-gray-50/50 dark:bg-slate-800/30 opacity-80 hover:opacity-100'
+                                : 'border-gray-100 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-700/20'
+                            }`}
+                          >
+                            <div className="relative shrink-0">
+                              <img src={project.image} alt="" className="w-14 h-14 rounded-xl object-cover bg-gray-100" />
+                              {!isVisible && (
+                                <span className="absolute -top-1.5 -right-1.5 p-1 rounded-full bg-gray-700 text-white text-[9px] shadow-sm" title="Hidden from public website">
+                                  <EyeOff size={10} />
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-800 dark:text-white truncate">{project.title}</p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                                  project.category === 'Completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                  project.category === 'Ongoing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                }`}>{project.category}</span>
+
+                                {/* Visibility status badge */}
+                                {isVisible ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
+                                    <Eye size={11} /> Visible
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-slate-600">
+                                    <EyeOff size={11} /> Hidden
+                                  </span>
+                                )}
+
+                                {project.date && <span className="text-xs text-gray-400">{project.date}</span>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {/* Quick toggle visibility */}
+                              <button
+                                onClick={() => handleToggleProjectVisibility(project)}
+                                title={isVisible ? "Click to hide from website" : "Click to make visible on website"}
+                                className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                                  isVisible
+                                    ? 'text-emerald-600 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                                    : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                                }`}
+                              >
+                                {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+                              </button>
+                              <button 
+                                onClick={() => handleEditClick(project)} 
+                                title="Edit project"
+                                className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg cursor-pointer"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteClick(project)} 
+                                title="Delete project"
+                                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg cursor-pointer"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )
-            )}
+              );
+            })()}
 
             {/* ──── LEADERSHIP TAB ──── */}
             {activeTab === 'leadership' && (
@@ -1441,28 +1602,154 @@ const AdminDashboard = () => {
             {/* ──── SECURITY TAB ──── */}
             {activeTab === 'security' && (
               <div className="space-y-8">
-                {/* Alert Email Card */}
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-700/40 dark:to-slate-700/20 rounded-xl p-5 border border-gray-200 dark:border-slate-600">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Mail size={16} className="text-amber-500" />
-                    <h3 className="font-bold text-gray-800 dark:text-white text-sm">Alert Email</h3>
+                {/* Attack Alert Email Card */}
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-700/40 dark:to-slate-700/20 rounded-2xl p-6 border border-gray-200 dark:border-slate-600 shadow-sm space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200/60 dark:border-slate-600/60 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                        <Mail size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-800 dark:text-white text-base">Brute Force & Attack Email Alerts</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Receive instant email warnings when brute-force login attempts or suspicious attacks are detected.
+                        </p>
+                      </div>
+                    </div>
+                    {alertEmail ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto">
+                        <CheckCircle size={13} /> Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800 self-start sm:self-auto">
+                        <AlertTriangle size={13} /> Not configured
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Receive email notifications when brute-force attacks are detected.</p>
-                  <div className="flex gap-2">
-                    <input type="email" placeholder="admin@yourclub.com" className={`${inputCls} flex-1`} value={alertEmail} onChange={e => setAlertEmail(e.target.value)} />
-                    <button onClick={handleAlertEmailSave} disabled={alertEmailSaving} className="px-4 py-2.5 rounded-xl bg-[var(--color-leo-maroon)] text-white text-sm font-bold hover:bg-red-900 transition-all disabled:opacity-50 whitespace-nowrap flex items-center gap-1.5">
-                      {alertEmailSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Destination Email */}
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                        Alert Notification Email
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="e.g. security@sabraleos.org or leoclubsusl@gmail.com"
+                        className={inputCls}
+                        value={alertEmail}
+                        onChange={e => setAlertEmail(e.target.value)}
+                      />
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+                        Alert emails will be dispatched to this mailbox during detected attacks.
+                      </p>
+                    </div>
+
+                    {/* Resend API Key */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                          <Key size={12} className="text-amber-500" /> Resend API Key
+                        </label>
+                        <a
+                          href="https://resend.com/api-keys"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-[var(--color-leo-maroon)] dark:text-[var(--color-leo-gold)] hover:underline inline-flex items-center gap-0.5"
+                        >
+                          Get Free Key <ExternalLink size={10} />
+                        </a>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showResendKey ? 'text' : 'password'}
+                          placeholder="re_xxxxxxxxxxxx (Optional if RESEND_API_KEY env is set)"
+                          className={`${inputCls} pr-10`}
+                          value={resendApiKey}
+                          onChange={e => setResendApiKey(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowResendKey(!showResendKey)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                        >
+                          {showResendKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+                        Used to send email alerts. Free tier allows 3,000 emails/month.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleSendTestAlert}
+                      disabled={testingAlertEmail || !alertEmail.trim()}
+                      className="px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 text-xs font-bold hover:bg-gray-50 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-sm"
+                    >
+                      {testingAlertEmail ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin text-amber-500" /> Sending Test...
+                        </>
+                      ) : (
+                        <>
+                          <Send size={14} className="text-amber-500" /> Send Test Alert Email
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAlertEmailSave}
+                      disabled={alertEmailSaving}
+                      className="px-6 py-2.5 rounded-xl bg-[var(--color-leo-maroon)] text-white text-xs font-bold hover:bg-red-900 transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-md cursor-pointer ml-auto"
+                    >
+                      {alertEmailSaving ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" /> Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save size={14} /> Save Alert Settings
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
 
                 {/* Logs */}
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2"><Clock size={16} /> Recent Activity</h3>
-                    <button onClick={fetchSecurityLogs} disabled={securityLoading} className="text-xs text-[var(--color-leo-maroon)] hover:underline flex items-center gap-1 disabled:opacity-50">
-                      <RefreshCw size={12} className={securityLoading ? 'animate-spin' : ''} /> Refresh
-                    </button>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div>
+                      <h3 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2"><Clock size={16} /> Recent Activity</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {showAllSecurityLogs ? `Showing all security events (${securityLogs.length} total)` : `Showing latest 50 security events`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !showAllSecurityLogs;
+                          setShowAllSecurityLogs(next);
+                          fetchSecurityLogs(next);
+                        }}
+                        disabled={securityLoading}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer ${
+                          showAllSecurityLogs
+                            ? 'bg-[var(--color-leo-maroon)] text-white border-[var(--color-leo-maroon)] shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-750'
+                        }`}
+                      >
+                        {showAllSecurityLogs ? <CheckCircle size={13} /> : null}
+                        {showAllSecurityLogs ? 'Showing All' : 'Show All'}
+                      </button>
+                      <button onClick={() => fetchSecurityLogs(showAllSecurityLogs)} disabled={securityLoading} className="text-xs text-[var(--color-leo-maroon)] hover:underline flex items-center gap-1 disabled:opacity-50 px-2 py-1.5 cursor-pointer">
+                        <RefreshCw size={12} className={securityLoading ? 'animate-spin' : ''} /> Refresh
+                      </button>
+                    </div>
                   </div>
                   {securityLoading && !securityLogs.length ? (
                     <div className="text-center py-12 text-gray-400"><Loader2 size={24} className="animate-spin mx-auto mb-2" />Loading...</div>
@@ -1500,11 +1787,47 @@ const AdminDashboard = () => {
             {/* ──── ACTIVITY LOG TAB ──── */}
             {activeTab === 'logs' && (
               <div className="space-y-6">
-                <div className="flex justify-between items-center mb-2">
-                   <h3 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2"><Clock size={16} /> Activity Log</h3>
-                   <button onClick={() => { setLogsLoading(true); fetchLogs().finally(() => setLogsLoading(false)); }} disabled={logsLoading} className="text-xs text-[var(--color-leo-maroon)] hover:underline flex items-center gap-1 disabled:opacity-50">
-                      <RefreshCw size={12} className={logsLoading ? 'animate-spin' : ''} /> Refresh
-                   </button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                   <div>
+                     <h3 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2">
+                       <Clock size={16} /> Activity Log
+                     </h3>
+                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                       {showAllLogs
+                         ? `Showing all activity logs (${logs.length} total)`
+                         : `Showing latest activity logs (${logs.length} shown)`}
+                     </p>
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <button
+                       type="button"
+                       onClick={() => {
+                         const next = !showAllLogs;
+                         setShowAllLogs(next);
+                         setLogsLoading(true);
+                         fetchLogs(next ? undefined : 50).finally(() => setLogsLoading(false));
+                       }}
+                       disabled={logsLoading}
+                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer ${
+                         showAllLogs
+                           ? 'bg-[var(--color-leo-maroon)] text-white border-[var(--color-leo-maroon)] shadow-sm'
+                           : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-750'
+                       }`}
+                     >
+                       {showAllLogs ? <CheckCircle size={13} /> : null}
+                       {showAllLogs ? 'Showing All Logs' : 'Show All Logs'}
+                     </button>
+                     <button 
+                       onClick={() => { 
+                         setLogsLoading(true); 
+                         fetchLogs(showAllLogs ? undefined : 50).finally(() => setLogsLoading(false)); 
+                       }} 
+                       disabled={logsLoading} 
+                       className="text-xs text-[var(--color-leo-maroon)] hover:underline flex items-center gap-1 disabled:opacity-50 px-2 py-1.5 cursor-pointer"
+                     >
+                       <RefreshCw size={12} className={logsLoading ? 'animate-spin' : ''} /> Refresh
+                     </button>
+                   </div>
                 </div>
 
                 {logsLoading && !logs.length ? (
@@ -1708,6 +2031,31 @@ const AdminDashboard = () => {
                   </FormField>
                   <FormField label="Date/Status"><input className={inputCls} value={projectForm.date || projectForm.status || ''} onChange={e => setProjectForm({ ...projectForm, date: e.target.value, status: e.target.value })} placeholder="e.g. Oct 2023" /></FormField>
                 </div>
+
+                {/* Project Visibility Option */}
+                <div className="p-3.5 bg-gray-50 dark:bg-slate-750/50 rounded-xl border border-gray-100 dark:border-slate-700 flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2 cursor-pointer">
+                      {projectForm.isVisible !== false ? <Eye size={16} className="text-emerald-500" /> : <EyeOff size={16} className="text-gray-400" />}
+                      Visible on Website
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {projectForm.isVisible !== false
+                        ? 'Visible to public visitors on the website.'
+                        : 'Hidden from public visitors (accessible only to admins).'}
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={projectForm.isVisible !== false}
+                      onChange={e => setProjectForm({ ...projectForm, isVisible: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-leo-maroon)]"></div>
+                  </label>
+                </div>
+
                 <FormField label="Description"><textarea required rows={3} className={inputCls} value={projectForm.description || ''} onChange={e => setProjectForm({ ...projectForm, description: e.target.value })} /></FormField>
                 <ImageUploadField 
                   label="Image" 
